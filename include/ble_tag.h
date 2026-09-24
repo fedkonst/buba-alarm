@@ -2,14 +2,14 @@
 #define BLE_TAG_H
 
 #include "states.h"
+#include <Arduino.h>
 
 #define RSSI_NEAR_THRESHOLD  -70
 #define RSSI_FAR_THRESHOLD   -88
 #define TAG_TIMEOUT_MS      4000
-#define RF_UNLOCK_GRACE_PERIOD_MS 30000
 
 struct KeylessState {
-    bool enabled = true;
+    bool enabled = true;               // Статус активности Hands-Free
     bool tagPresent = false;
     bool handsFreeSuspended = false;
     unsigned long lastTagSeenMs = 0;
@@ -17,15 +17,17 @@ struct KeylessState {
 
 extern KeylessState g_keyless;
 
-// Прототипы всех функций модуля BLE
+// Основные прототипы
 void initBLE();
 void initKeylessSystem();
 void processBLE(SystemState &state);
 void checkKeylessTimeout();
-void processBLETag(int currentRssi, bool isButtonPressed);
 void setManualUnlock();
-void handleManualLock();
-void handleManualUnlock();
+void triggerHazards(uint8_t count);
+
+// Функции работы с NVS памятью
+void loadKeylessSettings();
+void saveKeylessSettings(bool enabled);
 void toggleKeylessMode();
 
 #endif // BLE_TAG_H

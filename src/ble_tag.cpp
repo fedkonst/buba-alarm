@@ -1,47 +1,63 @@
 #include "ble_tag.h"
+#include "config.h"
+#include "ignition.h"
 #include <Arduino.h>
 #include <NimBLEDevice.h>
+#include <Preferences.h>
 
-static std::string TARGET_TAG_MAC = "48:87:2d:9e:1e:a4"; 
-
-// Назначение GPIO выводов
-#define PIN_IGNITION      34  // Вход зажигания (+12V через делитель)
-#define PIN_HAZARDS       26  // Выход на аварийку/поворотники
-#define PIN_WELCOME_LIGHT 25  // Выход на вежливый свет/подсветку
-
-// Пороги RSSI и таймауты
-#define RSSI_WELCOME_LEVEL -75  // Подход к авто (включение света)
-#define RSSI_UNLOCK_LEVEL  -65  // Открытие ЦЗ
-#define RSSI_LOCK_LEVEL    -82  // Закрытие ЦЗ
+#define RSSI_WELCOME_LEVEL -75   // Подход к авто (включение вежливого света)
+#define RSSI_UNLOCK_LEVEL  -65   // Открытие ЦЗ
+#define RSSI_LOCK_LEVEL    -82   // Закрытие ЦЗ
 #define COOLDOWN_MS        10000 // Задержка повторного открытия (10 сек)
 
 KeylessState g_keyless;
+static Preferences preferences;
 
 static int lastRssi = -100;
 static bool tagPresent = false;
 static unsigned long lastTagSeenTime = 0;
 
-// Таймеры и флаги функций
-static unsigned long lastLockedTime = 0;      // Задержка повторного открытия
-static bool lastIgnitionState = false;       // Состояние зажигания
-static bool isWelcomeLightActive = false;   // Флаг вежливого света
+static unsigned long lastLockedTime = 0;      
+static bool lastIgnitionState = false;        
+static bool isWelcomeLightActive = false;    
 
-// --- НЕДОСТАЮЩИЕ ФУНКЦИИ ДЛЯ СБОРКИ ---
+// --- Работа с NVS (Энергонезависимой памятью) ---
+
+void loadKeylessSettings() {
+    preferences.begin("keyless", true); // Только чтение
+    g_keyless.enabled = preferences.getBool("enabled", true);
+    preferences.end();
+    Serial.printf("[NVS] Hands-Free загружен из памяти: %s\n", g_keyless.enabled ? "ВКЛ" : "ВЫКЛ");
+}
+
+void saveKeylessSettings(bool enabled) {
+    preferences.begin("keyless", false); // Запись
+    preferences.putBool("enabled", enabled);
+    preferences.end();
+    g_keyless.enabled = enabled;
+    Serial.printf("[NVS] Сохранено новое состояние Hands-Free: %s\n", enabled ? "ВКЛ" : "ВЫКЛ");
+}
+
+void toggleKeylessMode() {
+    saveKeylessSettings(!g_keyless.enabled);
+    
+    // Индикация аварийкой: 3 раза — ВКЛ, 1 раз — ВЫКЛ
+    triggerHazards(g_keyless.enabled ? 3 : 1);
+}
 
 void initKeylessSystem() {
+    loadKeylessSettings();
     initBLE();
 }
 
 void checkKeylessTimeout() {
-    // Таймаут утери метки обрабатывается внутри processBLE
+    // Таймаут обрабатывается в processBLE
 }
 
 void setManualUnlock() {
-    lastLockedTime = millis(); // Сбрасываем задержку при ручном открытии с пульта
+    lastLockedTime = millis();
     Serial.println("[BLE] Ручное открытие с RF-пульта");
 }
-
-// ----------------------------------------
 
 void triggerHazards(uint8_t count) {
     for (uint8_t i = 0; i < count; i++) {
@@ -68,11 +84,9 @@ class AdvertisedDeviceCallbacks: public NimBLEAdvertisedDeviceCallbacks {
 };
 
 void initBLE() {
-    g_keyless.enabled = true;
     g_keyless.handsFreeSuspended = false;
     g_keyless.lastTagSeenMs = 0;
 
-    pinMode(PIN_IGNITION, INPUT);
     pinMode(PIN_HAZARDS, OUTPUT);
     pinMode(PIN_WELCOME_LIGHT, OUTPUT);
     digitalWrite(PIN_HAZARDS, LOW);
@@ -84,22 +98,21 @@ void initBLE() {
     pScan->setActiveScan(true);
     pScan->setInterval(100);
     pScan->setWindow(99);
-    pScan->start(0, nullptr, false);
 
-    Serial.println("[SYSTEM] Подсистемы безопасности и BLE запущены");
+    Serial.println("[SYSTEM] BLE модуль запущен");
 }
 
 void processBLE(SystemState &state) {
     unsigned long now = millis();
-    bool ignitionOn = (digitalRead(PIN_IGNITION) == HIGH);
+    bool ignitionOn = isIgnitionOn();
 
-    // 1 & 2. Защита в движении и автозапирание по зажиганию
+    // 1. Контроль зажигания (работает всегда)
     if (ignitionOn != lastIgnitionState) {
         delay(50);
         lastIgnitionState = ignitionOn;
 
         if (ignitionOn) {
-            Serial.println("[IGNITION] Зажигание ВКЛ -> Закрываем ЦЗ, отключаем Hands-Free");
+            Serial.println("[IGNITION] Зажигание ВКЛ -> Закрываем ЦЗ");
             state = STATE_ARMED;
             setWelcomeLight(false);
             return;
@@ -115,12 +128,21 @@ void processBLE(SystemState &state) {
         return;
     }
 
+    // 2. Если Hands-Free выключен с пульта — пропускаем радиосканирование
+    if (!g_keyless.enabled) {
+        return;
+    }
+
+    // Сканирование эфира (1 секунда)
+    NimBLEScan* pScan = NimBLEDevice::getScan();
+    pScan->start(1, false);
+
     if (now - lastTagSeenTime > TAG_TIMEOUT_MS) {
         tagPresent = false;
         lastRssi = -100;
     }
 
-    // 4. Вежливый свет
+    // 3. Вежливый свет
     if (tagPresent && lastRssi >= RSSI_WELCOME_LEVEL && state == STATE_ARMED) {
         if (!isWelcomeLightActive) {
             Serial.println("[LIGHT] Приближение -> Включение вежливого света");
@@ -132,10 +154,10 @@ void processBLE(SystemState &state) {
         }
     }
 
-    // 3 & 5. Логика снятия / постановки
+    // 4. Логика Hands-Free
     if (state == STATE_ARMED && tagPresent && lastRssi >= RSSI_UNLOCK_LEVEL) {
         if (now - lastLockedTime < COOLDOWN_MS) {
-            return; 
+            return;
         }
 
         state = STATE_DISARMED;

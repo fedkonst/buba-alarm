@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volvo 850 - Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0a0d14;
+            --panel-bg: rgba(20, 25, 35, 0.75);
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #64748b;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 50%, #1a2235 0%, var(--bg-color) 80%);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Шапка --- */
+        .app-header {
+            width: 100%;
+            padding: 25px 30px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+
+        .header-title { font-size: 22px; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
+        .header-spec { font-size: 12px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px; }
+        
+        .badges-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+            font-size: 12px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+
+        /* Статус Охраны */
+        #securityBadge {
+            border-color: rgba(16, 185, 129, 0.3);
+            color: var(--accent-green);
+        }
+        #securityBadge.badge-disarmed {
+            border-color: rgba(239, 68, 68, 0.3) !important;
+            color: var(--accent-red) !important;
+        }
+
+        /* Статус Двигателя */
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background-color: var(--text-muted);
+            box-shadow: 0 0 8px transparent;
+            transition: all 0.3s;
+        }
+        .engine-on-ui .status-dot {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green);
+        }
+        .engine-on-ui { border-color: rgba(16, 185, 129, 0.3); color: var(--accent-green); }
+
+        /* --- Сцена Автомобиля --- */
+        .car-stage {
+            position: relative;
+            width: 100%;
+            max-width: 650px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            width: 100%;
+            height: auto;
+            max-height: 55vh;
+            overflow: visible;
+            filter: drop-shadow(0 40px 40px rgba(0,0,0,0.8));
+        }
+
+        /* --- Кольцо Охраны (Периметр) --- */
+        .security-ring {
+            fill: rgba(16, 185, 129, 0.02);
+            stroke: var(--accent-green);
+            stroke-width: 2;
+            stroke-dasharray: 6 12;
+            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        @keyframes ringPulse {
+            0% { transform: scale(1); stroke-width: 2; }
+            50% { transform: scale(1.02); stroke-width: 3; }
+            100% { transform: scale(1); stroke-width: 2; }
+        }
+        .armed .security-ring { animation: ringPulse 4s infinite alternate; }
+
+        .disarmed .security-ring {
+            fill: transparent;
+            stroke: rgba(239, 68, 68, 0.4);
+            stroke-dasharray: 4 20;
+            filter: none;
+            transform: scale(1.05);
+            animation: none;
+        }
+
+        /* --- Анимация Дверей --- */
+        .door {
+            transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+            filter: drop-shadow(0 0 0 transparent);
+        }
+        
+        .door-fl { transform-origin: 240px 90px; }
+        .door-fr { transform-origin: 240px 270px; }
+        .door-rl { transform-origin: 340px 90px; }
+        .door-rr { transform-origin: 340px 270px; }
+
+        .doors-open .door-fl { transform: rotate(-50deg); filter: drop-shadow(-10px -10px 10px rgba(0,0,0,0.5)); }
+        .doors-open .door-fr { transform: rotate(50deg); filter: drop-shadow(-10px 10px 10px rgba(0,0,0,0.5)); }
+        .doors-open .door-rl { transform: rotate(-50deg); filter: drop-shadow(-10px -10px 10px rgba(0,0,0,0.5)); }
+        .doors-open .door-rr { transform: rotate(50deg); filter: drop-shadow(-10px 10px 10px rgba(0,0,0,0.5)); }
+
+        /* --- Анимация Выхлопа и Вибрации --- */
+        .smoke-particle { fill: #94a3b8; opacity: 0; filter: blur(6px); }
+        .engine-running .smoke-particle { animation: smokeRise 2s infinite ease-out; }
+        .engine-running .smoke-1 { animation-delay: 0s; }
+        .engine-running .smoke-2 { animation-delay: 0.6s; }
+        .engine-running .smoke-3 { animation-delay: 1.2s; }
+
+        @keyframes smokeRise {
+            0% { transform: translate(540px, 100px) scale(0.3); opacity: 0; }
+            20% { opacity: 0.6; }
+            100% { transform: translate(620px, 60px) scale(3.5); opacity: 0; }
+        }
+
+        .engine-running .car-body-group { animation: engineVibe 0.04s infinite alternate; }
+        @keyframes engineVibe { from { transform: translateX(0); } to { transform: translateX(0.5px); } }
+
+        /* --- Свет и Аварийка --- */
+        .beam { opacity: 0; transition: opacity 0.4s; }
+        .lights-active .beam { opacity: 1; }
+
+        .turn-signal { opacity: 0.2; fill: var(--accent-orange); }
+        .hazards-active .turn-signal { animation: hazardBlink 0.8s infinite; }
+
+        @keyframes hazardBlink {
+            0%, 100% { opacity: 0.1; filter: drop-shadow(0 0 0px transparent); }
+            50% { opacity: 1; filter: drop-shadow(0 0 20px var(--accent-orange)); }
+        }
+
+        /* --- Панель управления --- */
+        .control-panel {
+            width: 100%;
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding: 25px 15px 35px;
+            box-sizing: border-box;
+            border-radius: 30px 30px 0 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .btn {
+            flex: 1 1 calc(20% - 10px);
+            min-width: 60px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 14px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.25s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn span { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        .btn.active-engine { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-green); box-shadow: 0 5px 15px rgba(16, 185, 129, 0.1); }
+        .btn.active-sec { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: var(--accent-red); box-shadow: 0 5px 15px rgba(239, 68, 68, 0.1); }
+        .btn.active-doors { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-blue); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.1); }
+        .btn.active-lights { background: rgba(248, 250, 252, 0.1); border-color: rgba(248, 250, 252, 0.3); color: var(--text-main); box-shadow: 0 5px 15px rgba(255,255,255,0.05); }
+        .btn.active-hazards { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: var(--accent-orange); box-shadow: 0 5px 15px rgba(245, 158, 11, 0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="app-header">
+        <div>
+            <div class="header-title">VOLVO 850</div>
+            <div class="header-spec">DX BLE SMART ALARM</div>
+        </div>
+        <div class="badges-container">
+            <div class="status-badge" id="securityBadge">
+                <span id="securityIcon">🔒</span>
+                <span id="securityText">В охране</span>
+            </div>
+            <div class="status-badge" id="statusBadge">
+                <div class="status-dot"></div>
+                <span id="statusText">ДВС заглушен</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Интерактивная сцена автомобиля -->
+    <div class="car-stage armed" id="carModel">
+        <svg viewBox="0 0 650 360">
+            <defs>
+                <linearGradient id="paintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#1e232d" />
+                    <stop offset="20%" stop-color="#2a3240" />
+                    <stop offset="50%" stop-color="#3b465a" />
+                    <stop offset="80%" stop-color="#2a3240" />
+                    <stop offset="100%" stop-color="#1e232d" />
+                </linearGradient>
+
+                <linearGradient id="glassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#05070a" />
+                    <stop offset="45%" stop-color="#0a0e15" />
+                    <stop offset="50%" stop-color="#1f2c42" />
+                    <stop offset="55%" stop-color="#0a0e15" />
+                    <stop offset="100%" stop-color="#05070a" />
+                </linearGradient>
+
+                <linearGradient id="lightBeam" x1="100%" y1="0%" x2="0%" y2="0%">
+                    <stop offset="0%" stop-color="rgba(255, 255, 255, 0.85)" />
+                    <stop offset="40%" stop-color="rgba(255, 255, 255, 0.15)" />
+                    <stop offset="100%" stop-color="rgba(255, 255, 255, 0)" />
+                </linearGradient>
+            </defs>
+
+            <!-- Тень под авто -->
+            <rect x="90" y="75" width="490" height="210" rx="20" fill="rgba(0,0,0,0.6)" filter="blur(15px)" />
+
+            <!-- Кольцо периметра охраны -->
+            <rect x="25" y="25" width="600" height="310" rx="155" class="security-ring" />
+
+            <!-- Лучи света фар -->
+            <path class="beam" d="M 86,90 L -100,10 L -100,210 L 86,130 Z" fill="url(#lightBeam)" />
+            <path class="beam" d="M 86,230 L -100,150 L -100,350 L 86,270 Z" fill="url(#lightBeam)" />
+
+            <g class="car-body-group">
+                <!-- Салон -->
+                <rect x="100" y="90" width="450" height="180" rx="8" fill="#0d1117" />
+                
+                <!-- Бампера -->
+                <rect x="85" y="85" width="20" height="190" rx="4" fill="#181818" stroke="#222" stroke-width="1" />
+                <rect x="545" y="85" width="20" height="190" rx="4" fill="#181818" stroke="#222" stroke-width="1" />
+
+                <!-- Кузов -->
+                <path d="M 100,90 L 100,270 L 200,270 L 200,90 Z" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" stroke-linejoin="round" />
+                <line x1="100" y1="120" x2="195" y2="120" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+                <line x1="100" y1="240" x2="195" y2="240" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+                
+                <rect x="87" y="145" width="12" height="70" rx="1" fill="#050505" stroke="#111" />
+                <line x1="99" y1="150" x2="87" y2="210" stroke="#777" stroke-width="1.5" />
+
+                <polygon points="200,90 200,270 240,255 240,105" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" stroke-linejoin="round" />
+                
+                <path d="M 460,90 L 460,270 L 550,270 L 550,90 Z" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" stroke-linejoin="round" />
+                <polygon points="460,90 460,270 420,255 420,105" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" stroke-linejoin="round" />
+
+                <rect x="240" y="105" width="180" height="150" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
+                <rect x="270" y="135" width="50" height="90" rx="4" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
+
+                <!-- Двери -->
+                <g class="door door-fl">
+                    <rect x="240" y="90" width="100" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
+                    <rect x="245" y="100" width="90" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
+                    <rect x="245" y="75" width="22" height="15" rx="3" fill="#181818" />
+                </g>
+
+                <g class="door door-fr">
+                    <rect x="240" y="245" width="100" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
+                    <rect x="245" y="245" width="90" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
+                    <rect x="245" y="270" width="22" height="15" rx="3" fill="#181818" />
+                </g>
+
+                <g class="door door-rl">
+                    <rect x="340" y="90" width="80" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
+                    <rect x="340" y="100" width="75" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
+                </g>
+
+                <g class="door door-rr">
+                    <rect x="340" y="245" width="80" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
+                    <rect x="340" y="245" width="75" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
+                </g>
+
+                <!-- Оптика -->
+                <rect x="86" y="90" width="12" height="40" rx="2" fill="#e2e8f0" />
+                <rect x="86" y="230" width="12" height="40" rx="2" fill="#e2e8f0" />
+
+                <rect x="535" y="90" width="18" height="35" rx="2" fill="#dc2626" />
+                <rect x="535" y="235" width="18" height="35" rx="2" fill="#dc2626" />
+
+                <rect x="87" y="85" width="14" height="8" rx="1" class="turn-signal" />
+                <rect x="87" y="267" width="14" height="8" rx="1" class="turn-signal" />
+                <rect x="537" y="85" width="14" height="12" rx="1" class="turn-signal" />
+                <rect x="537" y="263" width="14" height="12" rx="1" class="turn-signal" />
+            </g>
+
+            <!-- Дым выхлопа -->
+            <g id="exhaust-system">
+                <circle cx="0" cy="0" r="10" class="smoke-particle smoke-1" />
+                <circle cx="0" cy="0" r="12" class="smoke-particle smoke-2" />
+                <circle cx="0" cy="0" r="15" class="smoke-particle smoke-3" />
+            </g>
+        </svg>
+    </div>
+
+    <!-- Панель управления -->
+    <div class="control-panel">
+        <div class="btn" id="btnEngine" onclick="toggleEngine()">
+            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <span>Мотор</span>
+        </div>
+        
+        <div class="btn" id="btnSecurity" onclick="toggleSecurity()">
+            <svg viewBox="0 0 24 24" id="shieldIcon">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>Охрана</span>
+        </div>
+
+        <div class="btn" id="btnDoors" onclick="toggleDoors()">
+            <svg viewBox="0 0 24 24">
+                <path d="M18 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2zM10 12a1 1 0 11-2 0 1 1 0 012 0z"/>
+            </svg>
+            <span>Двери</span>
+        </div>
+
+        <div class="btn" id="btnLights" onclick="toggleLights()">
+            <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2v2M4.22 4.22l1.42 1.42M19.78 4.22l-1.42 1.42M2 12h2M20 12h2M12 17a5 5 0 100-10 5 5 0 000 10z"/></svg>
+            <span>Свет</span>
+        </div>
+
+        <div class="btn" id="btnHazards" onclick="toggleHazards()">
+            <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+            <span>Сигнал</span>
+        </div>
+    </div>
+
+    <script>
+        const car = document.getElementById('carModel');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusText = document.getElementById('statusText');
+
+        const secBadge = document.getElementById('securityBadge');
+        const secIcon = document.getElementById('securityIcon');
+        const secText = document.getElementById('securityText');
+
+        function toggleEngine() {
+            const isRunning = car.classList.toggle('engine-running');
+            document.getElementById('btnEngine').classList.toggle('active-engine');
+            statusBadge.classList.toggle('engine-on-ui', isRunning);
+            statusText.innerText = isRunning ? 'ДВС запущен' : 'ДВС заглушен';
+        }
+
+        function toggleSecurity() {
+            const isArmed = car.classList.toggle('armed');
+            car.classList.toggle('disarmed', !isArmed);
+            
+            const btn = document.getElementById('btnSecurity');
+            btn.classList.toggle('active-sec', !isArmed);
+            
+            if (!isArmed) {
+                secBadge.classList.add('badge-disarmed');
+                secIcon.innerText = '🔓';
+                secText.innerText = 'Снято с охраны';
+            } else {
+                secBadge.classList.remove('badge-disarmed');
+                secIcon.innerText = '🔒';
+                secText.innerText = 'В охране';
+            }
+        }
+
+        function toggleDoors() {
+            car.classList.toggle('doors-open');
+            document.getElementById('btnDoors').classList.toggle('active-doors');
+        }
+
+        function toggleLights() {
+            car.classList.toggle('lights-active');
+            document.getElementById('btnLights').classList.toggle('active-lights');
+        }
+
+        function toggleHazards() {
+            car.classList.toggle('hazards-active');
+            document.getElementById('btnHazards').classList.toggle('active-hazards');
+        }
+    </script>
+</body>
+</html>

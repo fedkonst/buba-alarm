@@ -10,9 +10,13 @@
 // Функции инициализации
 void initSensors();
 void initIgnition();
+void initSensors();
+void updateSensors(); // Функция опроса и фильтрации в loop()
 
 // Функции считывания текущего состояния
 bool isIgnitionOn();
 bool isDoorOpen();
+bool isIgnitionOn();  // Возвращает отфильтрованное состояние зажигания
+bool isDoorOpen();    // Возвращает отфильтрованное состояние дверей
 
 #endif // IGNITION_H

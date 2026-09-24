@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="green">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Volvo 850 - Telematics Dashboard</title>
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* --- ЦВЕТОВЫЕ ТЕМЫ (CSS VARIABLES) --- */
+        
+        /* 1. Modern Dark (По умолчанию) */
+        :root[data-theme="modern"] {
+            --bg-color: #101216;
+            --card-bg: #1a1d24;
+            --card-inner: #14161c;
+            --border-color: #272b35;
+            --accent-blue: #4a90e2;
+            --accent-amber: #e6a23c;
+            --accent-green: #41b883;
+            --accent-red: #e74c3c;
+            --text-main: #f0f2f5;
+            --text-sub: #8c93a0;
+            --text-glow: none;
+            --map-filter: brightness(0.85) contrast(1.1);
+        }
+
+        /* 2. Volvo Classic Green (850 VDO Green Glow) */
+        :root[data-theme="green"] {
+            --bg-color: #070d0a;
+            --card-bg: #0d1712;
+            --card-inner: #09100c;
+            --border-color: #1b3827;
+            --accent-blue: #00ff66;
+            --accent-amber: #ffb300;
+            --accent-green: #00ff66;
+            --accent-red: #ff4d4d;
+            --text-main: #33ff88;
+            --text-sub: #1b9950;
+            --text-glow: 0 0 6px rgba(51, 255, 136, 0.4);
+            --map-filter: brightness(0.7) hue-rotate(90deg) contrast(1.3);
+        }
+
+        /* 3. Volvo Amber (Янтарный салонный свет) */
+        :root[data-theme="amber"] {
+            --bg-color: #120b06;
+            --card-bg: #1f130a;
+            --card-inner: #140c06;
+            --border-color: #3d2412;
+            --accent-blue: #ff9933;
+            --accent-amber: #ffb300;
+            --accent-green: #41b883;
+            --accent-red: #e74c3c;
+            --text-main: #ffaa55;
+            --text-sub: #aa6622;
+            --text-glow: 0 0 6px rgba(255, 170, 85, 0.3);
+            --map-filter: brightness(0.75) hue-rotate(330deg) contrast(1.2);
+        }
+
+        :root { --nav-height: 64px; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg-color); color: var(--text-main); padding: 14px 14px calc(var(--nav-height) + 20px) 14px; min-height: 100vh; transition: background 0.3s, color 0.3s; }
+
+        /* --- Header --- */
+        .header { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 14px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 1.5px; color: var(--text-main); text-shadow: var(--text-glow); }
+        
+        .status-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 8px; background: var(--card-inner); border: 1px solid var(--border-color); font-size: 0.72rem; color: var(--text-sub); font-weight: 500; }
+        .status-badge.online { color: var(--accent-green); border-color: rgba(65, 184, 131, 0.3); }
+        .status-badge.gps { color: var(--accent-blue); }
+        .status-pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 8px; background: rgba(65, 184, 131, 0.15); color: var(--accent-green); font-size: 0.72rem; font-weight: 700; border: 1px solid var(--border-color); margin-left: auto; }
+
+        /* --- Tabs Logic --- */
+        .tab-content { display: none; flex-direction: column; gap: 14px; }
+        .tab-content.active { display: flex; }
+
+        /* --- UI Elements --- */
+        .section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-sub); margin-top: 4px; }
+
+        /* --- Map Hero --- */
+        .map-hero-card { position: relative; height: 190px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border-color); background: var(--card-bg); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        #map { width: 100%; height: 100%; z-index: 1; filter: var(--map-filter); transition: filter 0.3s; }
+        .map-overlay { position: absolute; inset: 0; z-index: 2; background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 40%, var(--card-bg) 100%); display: flex; flex-direction: column; justify-content: space-between; padding: 14px; pointer-events: none; }
+        .location-tag { background: var(--bg-color); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 8px; font-size: 0.72rem; color: var(--text-sub); backdrop-filter: blur(6px); width: fit-content; }
+        .hero-title { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-main); line-height: 1.1; text-shadow: var(--text-glow); }
+        .hero-sub { font-size: 0.78rem; color: var(--text-sub); margin-top: 3px; }
+        .car-marker { width: 18px; height: 18px; background: var(--accent-blue); border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 15px var(--accent-blue); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0); } }
+
+        /* --- Metrics & Cards --- */
+        .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .metric-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; }
+        .metric-label { font-size: 0.72rem; color: var(--text-sub); text-transform: uppercase; }
+        .metric-val { font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin-top: 4px; text-shadow: var(--text-glow); }
+        .metric-unit { font-size: 0.8rem; color: var(--text-sub); font-weight: 400; }
+
+        .perimeter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .door-badge { background: var(--card-inner); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 6px; text-align: center; font-size: 0.75rem; color: var(--text-sub); }
+        .door-badge.active { border-color: var(--accent-red); color: var(--accent-red); background: rgba(231, 76, 60, 0.12); font-weight: 600; }
+
+        /* --- Controls Page --- */
+        .controls-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .ctrl-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-main); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .ctrl-btn:active { transform: scale(0.97); background: var(--card-inner); }
+        .ctrl-btn .icon { font-size: 1.5rem; }
+        .ctrl-btn.active-state { border-color: var(--accent-green); background: rgba(65, 184, 131, 0.1); color: var(--accent-green); }
+        .ctrl-btn.danger-state { border-color: var(--accent-red); background: rgba(231, 76, 60, 0.1); color: var(--accent-red); }
+
+        /* --- Theme Switcher Buttons --- */
+        .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+        .theme-btn { background: var(--card-inner); border: 1px solid var(--border-color); padding: 10px 6px; border-radius: 10px; text-align: center; font-size: 0.75rem; color: var(--text-sub); cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        .theme-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(74, 144, 226, 0.1); text-shadow: var(--text-glow); }
+
+        /* --- Settings Page Controls --- */
+        .form-group { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+        .form-row { display: flex; justify-content: space-between; align-items: center; }
+        .form-label { font-size: 0.85rem; color: var(--text-main); font-weight: 500; }
+        .form-sublabel { font-size: 0.72rem; color: var(--text-sub); }
+        .form-val-badge { font-family: monospace; font-size: 0.82rem; color: var(--accent-blue); background: var(--card-inner); padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border-color); }
+        input[type="range"] { width: 100%; accent-color: var(--accent-blue); margin-top: 4px; }
+        input[type="text"], input[type="password"] { width: 100%; background: var(--card-inner); border: 1px solid var(--border-color); padding: 10px 12px; border-radius: 8px; color: var(--text-main); font-size: 0.85rem; outline: none; }
+        input[type="text"]:focus, input[type="password"]:focus { border-color: var(--accent-blue); }
+
+        /* Toggle Switch UI */
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--card-inner); border: 1px solid var(--border-color); transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: var(--text-sub); transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: rgba(74, 144, 226, 0.25); border-color: var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(22px); background-color: var(--accent-blue); }
+
+        /* Bluetooth Tag UI */
+        .tag-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+        .tag-item { display: flex; justify-content: space-between; align-items: center; background: var(--card-inner); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.8rem; }
+        .tag-info { display: flex; flex-direction: column; gap: 2px; }
+        .tag-name { font-weight: 600; color: var(--text-main); }
+        .tag-mac { font-size: 0.7rem; color: var(--text-sub); font-family: monospace; }
+        .tag-status { font-size: 0.72rem; color: var(--accent-green); background: rgba(65, 184, 131, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); }
+        .btn-add-tag { background: rgba(74, 144, 226, 0.1); border: 1px dashed var(--accent-blue); color: var(--accent-blue); padding: 10px; border-radius: 8px; text-align: center; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+
+        .btn-save { width: 100%; padding: 15px; border-radius: 12px; border: none; background: var(--accent-blue); color: #000; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+        .btn-save:active { opacity: 0.85; }
+
+        /* --- Logs Page --- */
+        .log-toolbar { display: flex; justify-content: space-between; gap: 8px; }
+        .log-search { flex: 1; }
+        .btn-clear-log { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-red); padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+        
+        .log-container { background: var(--card-inner); border: 1px solid var(--border-color); border-radius: 14px; padding: 10px; max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-family: monospace; }
+        .log-item { font-size: 0.75rem; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.02); display: flex; gap: 8px; align-items: flex-start; border-left: 3px solid var(--border-color); }
+        .log-item.info { border-left-color: var(--accent-blue); }
+        .log-item.warn { border-left-color: var(--accent-amber); }
+        .log-item.alarm { border-left-color: var(--accent-red); background: rgba(231, 76, 60, 0.08); }
+        .log-time { color: var(--text-sub); white-space: nowrap; }
+        .log-msg { color: var(--text-main); word-break: break-all; }
+
+        /* --- Bottom Navigation Bar --- */
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-height); background: var(--card-bg); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-sub); font-size: 0.68rem; font-weight: 500; text-decoration: none; cursor: pointer; width: 25%; padding: 6px 0; }
+        .nav-item .nav-icon { font-size: 1.25rem; }
+        .nav-item.active { color: var(--accent-blue); font-weight: 700; text-shadow: var(--text-glow); }
+
+        /* Toast */
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: var(--accent-blue); color: #000; padding: 10px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; box-shadow: 0 4px 16px rgba(0,0,0,0.4); opacity: 0; transition: all 0.3s ease; z-index: 1000; }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="toast">Настройки сохранены!</div>
+
+    <!-- Шапка -->
+    <div class="header">
+        <div class="header-top">
+            <h1>VOLVO TELEMATICS</h1>
+        </div>
+        <div class="status-bar">
+            <div class="status-badge online">📡 Wi-Fi: AP</div>
+            <div class="status-badge gps">📍 GPS: 3D Fix</div>
+            <div class="status-pill" id="securityStatus">● ОХРАНА ВКЛ.</div>
+        </div>
+    </div>
+
+    <!-- ВКЛАДКА 1: ГЛАВНАЯ -->
+    <div id="tab-home" class="tab-content active">
+        <div class="map-hero-card">
+            <div id="map"></div>
+            <div class="map-overlay">
+                <div class="location-tag">📍 Санкт-Петербург</div>
+                <div>
+                    <div class="hero-title">VOLVO 850</div>
+                    <div class="hero-sub">2.5L B5254S • 1993</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Состояние системы</div>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">АКБ</div>
+                <div class="metric-val" id="valVoltage">12.6 <span class="metric-unit">V</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Обороты</div>
+                <div class="metric-val" id="valRpm">0 <span class="metric-unit">RPM</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Салон</div>
+                <div class="metric-val" id="valTempCabin">+19 <span class="metric-unit">°C</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Двигатель</div>
+                <div class="metric-val" id="valTempEngine">+42 <span class="metric-unit">°C</span></div>
+            </div>
+        </div>
+
+        <div class="section-title">Периметр</div>
+        <div class="perimeter-grid">
+            <div class="door-badge" id="doorFL">Вод. дверь</div>
+            <div class="door-badge" id="doorFR">Пасс. дверь</div>
+            <div class="door-badge active" id="doorHood">Капот</div>
+            <div class="door-badge" id="doorRL">Задн. левая</div>
+            <div class="door-badge" id="doorRR">Задн. правая</div>
+            <div class="door-badge" id="doorTrunk">Багажник</div>
+        </div>
+
+        <button class="btn-save" style="background: rgba(0, 255, 102, 0.15); border: 1px solid var(--accent-blue); color: var(--accent-blue);" onclick="toggleEngineStart()">🚀 Быстрый запуск двигателя</button>
+    </div>
+
+    <!-- ВКЛАДКА 2: УПРАВЛЕНИЕ -->
+    <div id="tab-control" class="tab-content">
+        <div class="section-title">Двери и охрана</div>
+        <div class="controls-grid">
+            <button class="ctrl-btn" onclick="sendCommand('lock')">
+                <span class="icon">🔒</span>
+                <span>Закрыть ЦЗ</span>
+            </button>
+            <button class="ctrl-btn" onclick="sendCommand('unlock')">
+                <span class="icon">🔓</span>
+                <span>Открыть ЦЗ</span>
+            </button>
+            <button class="ctrl-btn" onclick="sendCommand('trunk')">
+                <span class="icon">🚗</span>
+                <span>Замок багажника</span>
+            </button>
+            <button class="ctrl-btn danger-state" onclick="sendCommand('alarm_toggle')">
+                <span class="icon">🚨</span>
+                <span>Паника / Сирена</span>
+            </button>
+        </div>
+
+        <div class="section-title">Запуск и подогрев</div>
+        <div class="controls-grid">
+            <button class="ctrl-btn active-state" onclick="sendCommand('engine_start')">
+                <span class="icon">🔑</span>
+                <span>Автозапуск</span>
+            </button>
+            <button class="ctrl-btn" onclick="sendCommand('engine_stop')">
+                <span class="icon">🛑</span>
+                <span>Заглушить</span>
+            </button>
+            <button class="ctrl-btn" onclick="sendCommand('webasto')">
+                <span class="icon">♨️</span>
+                <span>Webasto / Подогрев</span>
+            </button>
+            <button class="ctrl-btn" onclick="sendCommand('lights')">
+                <span class="icon">💡</span>
+                <span>Вежливый свет</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ВКЛАДКА 3: НАСТРОЙКИ -->
+    <div id="tab-settings" class="tab-content">
+        
+        <!-- ВЫБОР СТИЛЯ ТЕМЫ -->
+        <div class="section-title">Стилизация UI (Темы Volvo)</div>
+        <div class="form-group">
+            <div class="form-label">Тема оформления панели:</div>
+            <div class="theme-grid">
+                <div class="theme-btn active" id="btnThemeGreen" onclick="setTheme('green')">🟢 850 Green</div>
+                <div class="theme-btn" id="btnThemeAmber" onclick="setTheme('amber')">🟠 Amber</div>
+                <div class="theme-btn" id="btnThemeModern" onclick="setTheme('modern')">⚪ Modern</div>
+            </div>
+        </div>
+
+        <!-- HANDS FREE -->
+        <div class="section-title">Бесконтактный доступ (Hands Free)</div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <div class="form-label">Режим Hands Free</div>
+                    <div class="form-sublabel">Авто-снятие и постановка по BLE-метке</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="chkHandsFree" checked onchange="toggleSetting('Hands Free', this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="form-row" style="margin-top: 6px;">
+                <div>
+                    <div class="form-label">Дистанция срабатывания (RSSI)</div>
+                    <div class="form-sublabel">Порог радиосигнала для открытия</div>
+                </div>
+                <span class="form-val-badge" id="lblRssi">-68 dBm</span>
+            </div>
+            <input type="range" id="rngRssi" min="-90" max="-45" step="1" value="-68" oninput="updateSettingLbl('lblRssi', this.value + ' dBm')">
+        </div>
+
+        <!-- ВЕЖЛИВЫЙ СВЕТ -->
+        <div class="section-title">Вежливый свет (Follow Me Home)</div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <div class="form-label">Подсветка при снятии с охраны</div>
+                    <div class="form-sublabel">Включение ближнего света/габаритов</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="chkLightUnlock" checked onchange="toggleSetting('Свет при снятии', this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="form-row" style="margin-top: 6px;">
+                <div>
+                    <div class="form-label">Задержка выключения</div>
+                    <div class="form-sublabel">Время работы фар после постановки</div>
+                </div>
+                <span class="form-val-badge" id="lblLightDelay">30 сек</span>
+            </div>
+            <input type="range" id="rngLightDelay" min="5" max="120" step="5" value="30" oninput="updateSettingLbl('lblLightDelay', this.value + ' сек')">
+        </div>
+
+        <!-- КЛЮЧИ И МЕТКИ -->
+        <div class="section-title">Ключи и метки (Bluetooth / DX Smart)</div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <div class="form-label">Режим иммобилайзера</div>
+                    <div class="form-sublabel">Блокировка пуска без метки рядом</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="chkImmo" checked onchange="toggleSetting('Иммобилайзер', this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="form-label" style="margin-top: 6px;">Зарегистрированные метки:</div>
+            <div class="tag-list" id="tagList">
+                <div class="tag-item">
+                    <div class="tag-info">
+                        <span class="tag-name">🏷️ Маяк DX Smart #1</span>
+                        <span class="tag-mac">MAC: 4A:8B:C9:2D:11:80</span>
+                    </div>
+                    <span class="tag-status">В сети</span>
+                </div>
+                <div class="tag-item">
+                    <div class="tag-info">
+                        <span class="tag-name">📱 Смартфон (BLE Key)</span>
+                        <span class="tag-mac">MAC: 1C:92:E3:FA:81:3C</span>
+                    </div>
+                    <span class="tag-status" style="color: var(--text-sub); background: none; border: none;">Не активен</span>
+                </div>
+            </div>
+            <div class="btn-add-tag" onclick="addBluetoothTag()">+ Привязать новую метку / брелок</div>
+        </div>
+
+        <!-- АВТОЗАПУСК -->
+        <div class="section-title">Параметры автозапуска</div>
+        <div class="form-group">
+            <div class="form-row">
+                <div>
+                    <div class="form-label">Прокрутка стартера</div>
+                    <div class="form-sublabel">Длительность импульса зажигания</div>
+                </div>
+                <span class="form-val-badge" id="lblCrank">1500 ms</span>
+            </div>
+            <input type="range" id="rngCrank" min="800" max="4000" step="100" value="1500" oninput="updateSettingLbl('lblCrank', this.value + ' ms')">
+
+            <div class="form-row" style="margin-top: 6px;">
+                <div>
+                    <div class="form-label">Время прогрева</div>
+                    <div class="form-sublabel">Максимальная работа двигателя</div>
+                </div>
+                <span class="form-val-badge" id="lblWarmup">15 мин</span>
+            </div>
+            <input type="range" id="rngWarmup" min="5" max="45" step="5" value="15" oninput="updateSettingLbl('lblWarmup', this.value + ' мин')">
+        </div>
+
+        <!-- СЕТЬ И СВЯЗЬ -->
+        <div class="section-title">Сеть и связь</div>
+        <div class="form-group">
+            <div class="form-label">Имя Wi-Fi точки (SSID)</div>
+            <input type="text" id="wifiSsid" value="Volvo850-Telematics">
+            
+            <div class="form-label" style="margin-top: 6px;">Пароль Wi-Fi</div>
+            <input type="password" id="wifiPass" value="12345678">
+        </div>
+
+        <button class="btn-save" onclick="saveSettings()">Сохранить конфигурацию в NVS</button>
+    </div>
+
+    <!-- ВКЛАДКА 4: ЖУРНАЛ -->
+    <div id="tab-logs" class="tab-content">
+        <div class="log-toolbar">
+            <input type="text" class="log-search" id="logFilter" placeholder="Поиск по логам..." oninput="filterLogs()">
+            <button class="btn-clear-log" onclick="clearLogs()">Очистить</button>
+        </div>
+
+        <div class="log-container" id="logContainer">
+            <!-- Динамический лог -->
+        </div>
+    </div>
+
+    <!-- Нижняя навигация -->
+    <nav class="nav-bar">
+        <div class="nav-item active" onclick="switchTab('home', this)">
+            <span class="nav-icon">🏠</span>
+            <span>Главная</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('control', this)">
+            <span class="nav-icon">🎛️</span>
+            <span>Управление</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('settings', this)">
+            <span class="nav-icon">⚙️</span>
+            <span>Настройки</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('logs', this)">
+            <span class="nav-icon">📜</span>
+            <span>Журнал</span>
+        </div>
+    </nav>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- 1. Инициализация карты ---
+        const lat = 59.8784, lng = 30.4682;
+        let map;
+
+        function initMap() {
+            if (map) return;
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                touchZoom: false
+            }).setView([lat, lng], 14);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+            const carIcon = L.divIcon({ className: 'car-marker', iconSize: [18, 18], iconAnchor: [9, 9] });
+            L.marker([lat, lng], { icon: carIcon }).addTo(map);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initMap();
+            addLog("SYSTEM", "Система инициализирована. Соединение открыто.", "info");
+            addLog("BLE", "Зафиксирован сигнал метки DX Smart (-68 dBm)", "info");
+            addLog("UI", "Применена ретро-тема оформления Volvo 850 Green", "info");
+        });
+
+        // --- 2. Переключение тем оформления ---
+        function setTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            
+            // Обновление состояния кнопок
+            document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+            if (themeName === 'green') document.getElementById('btnThemeGreen').classList.add('active');
+            if (themeName === 'amber') document.getElementById('btnThemeAmber').classList.add('active');
+            if (themeName === 'modern') document.getElementById('btnThemeModern').classList.add('active');
+
+            showToast("Тема изменена: " + themeName.toUpperCase());
+            addLog("UI", "Переключен стиль интерфейса: " + themeName, "info");
+        }
+
+        // --- 3. Переключение вкладок ---
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabId).classList.add('active');
+            el.classList.add('active');
+
+            if (tabId === 'home' && map) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        }
+
+        // --- 4. Вспомогательные функции ---
+        function updateSettingLbl(id, val) {
+            document.getElementById(id).innerText = val;
+        }
+
+        function toggleSetting(name, state) {
+            const status = state ? "ВКЛ" : "ВЫКЛ";
+            showToast(`${name}: ${status}`);
+            addLog("SETTINGS", `Изменение опции: ${name} -> ${status}`, "info");
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function sendCommand(cmd) {
+            showToast("Команда: " + cmd.toUpperCase());
+            addLog("CMD", "Отправлена команда: " + cmd, "info");
+        }
+
+        function toggleEngineStart() {
+            showToast("🚀 Команда запуска отправлена!");
+            addLog("ENGINE", "Запрос автозапуска пользователя...", "info");
+            setTimeout(() => {
+                document.getElementById('valRpm').innerHTML = '850 <span class="metric-unit">RPM</span>';
+                addLog("ENGINE", "Двигатель успешно запущен. Обороты: 850 RPM", "info");
+            }, 1800);
+        }
+
+        function addBluetoothTag() {
+            showToast("Поиск новых BLE-меток...");
+            addLog("BLE", "Запущен режим сопряжения новой метки/маяка (30 сек)", "info");
+        }
+
+        function saveSettings() {
+            showToast("Конфигурация сохранена!");
+            addLog("NVS", "Все параметры сохранены в энергонезависимую память ESP32", "info");
+        }
+
+        // --- 5. Журнал событий (Логи) ---
+        function addLog(tag, message, type = "info") {
+            const container = document.getElementById('logContainer');
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+
+            const item = document.createElement('div');
+            item.className = `log-item ${type}`;
+            item.innerHTML = `
+                <span class="log-time">[${timeStr}]</span>
+                <span class="log-msg"><b>[${tag}]</b> ${message}</span>
+            `;
+            container.prepend(item);
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            showToast("Журнал очищен");
+        }
+
+        function filterLogs() {
+            const query = document.getElementById('logFilter').value.toLowerCase();
+            const items = document.querySelectorAll('.log-item');
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
