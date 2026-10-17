@@ -2,429 +2,1097 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Volvo 850 - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Volvo 850 — Orbit Telematics</title>
     <style>
         :root {
-            --bg-color: #0a0d14;
-            --panel-bg: rgba(20, 25, 35, 0.75);
-            --accent-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-orange: #f59e0b;
-            --accent-red: #ef4444;
-            --text-main: #f8fafc;
-            --text-muted: #64748b;
+            --bg-main: #060b09;
+            --card-bg: #0b1411;
+            --card-inner: #080f0d;
+            --surface-bg: #101c18;
+            --border-color: rgba(138, 232, 192, 0.14);
+            --text-main: #eef7f2;
+            --text-sub: #7a9488;
+            --mint: #8ae8c0;
+            --mint-text: #062116;
+            --accent-blue: #2eb872;
+            --amber: #f5b942;
+            --danger: #ff5757;
+
+            --orbit-ring: rgba(138, 232, 192, 0.11);
+            --orbit-glow: rgba(138, 232, 192, 0.07);
         }
 
-        body {
-            background: radial-gradient(circle at 50% 50%, #1a2235 0%, var(--bg-color) 80%);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        .orbit-card.disarmed-mode {
+            --orbit-ring: rgba(255, 87, 87, 0.24);
+            --orbit-glow: rgba(255, 87, 87, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-
-        /* --- Шапка --- */
-        .app-header {
-            width: 100%;
-            padding: 25px 30px;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            z-index: 10;
-        }
-
-        .header-title { font-size: 22px; font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
-        .header-spec { font-size: 12px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px; }
-        
-        .badges-container {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: flex-end;
-        }
-
-        .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(0,0,0,0.4);
-            padding: 8px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.05);
-            font-size: 12px;
-            font-weight: 500;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s;
-        }
-
-        /* Статус Охраны */
-        #securityBadge {
-            border-color: rgba(16, 185, 129, 0.3);
-            color: var(--accent-green);
-        }
-        #securityBadge.badge-disarmed {
-            border-color: rgba(239, 68, 68, 0.3) !important;
-            color: var(--accent-red) !important;
-        }
-
-        /* Статус Двигателя */
-        .status-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background-color: var(--text-muted);
-            box-shadow: 0 0 8px transparent;
-            transition: all 0.3s;
-        }
-        .engine-on-ui .status-dot {
-            background-color: var(--accent-green);
-            box-shadow: 0 0 10px var(--accent-green);
-        }
-        .engine-on-ui { border-color: rgba(16, 185, 129, 0.3); color: var(--accent-green); }
-
-        /* --- Сцена Автомобиля --- */
-        .car-stage {
-            position: relative;
-            width: 100%;
-            max-width: 650px;
-            flex-grow: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        svg {
-            width: 100%;
-            height: auto;
-            max-height: 55vh;
-            overflow: visible;
-            filter: drop-shadow(0 40px 40px rgba(0,0,0,0.8));
-        }
-
-        /* --- Кольцо Охраны (Периметр) --- */
-        .security-ring {
-            fill: rgba(16, 185, 129, 0.02);
-            stroke: var(--accent-green);
-            stroke-width: 2;
-            stroke-dasharray: 6 12;
-            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            transform-origin: center;
-        }
-
-        @keyframes ringPulse {
-            0% { transform: scale(1); stroke-width: 2; }
-            50% { transform: scale(1.02); stroke-width: 3; }
-            100% { transform: scale(1); stroke-width: 2; }
-        }
-        .armed .security-ring { animation: ringPulse 4s infinite alternate; }
-
-        .disarmed .security-ring {
-            fill: transparent;
-            stroke: rgba(239, 68, 68, 0.4);
-            stroke-dasharray: 4 20;
-            filter: none;
-            transform: scale(1.05);
-            animation: none;
-        }
-
-        /* --- Анимация Дверей --- */
-        .door {
-            transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
-            filter: drop-shadow(0 0 0 transparent);
-        }
-        
-        .door-fl { transform-origin: 240px 90px; }
-        .door-fr { transform-origin: 240px 270px; }
-        .door-rl { transform-origin: 340px 90px; }
-        .door-rr { transform-origin: 340px 270px; }
-
-        .doors-open .door-fl { transform: rotate(-50deg); filter: drop-shadow(-10px -10px 10px rgba(0,0,0,0.5)); }
-        .doors-open .door-fr { transform: rotate(50deg); filter: drop-shadow(-10px 10px 10px rgba(0,0,0,0.5)); }
-        .doors-open .door-rl { transform: rotate(-50deg); filter: drop-shadow(-10px -10px 10px rgba(0,0,0,0.5)); }
-        .doors-open .door-rr { transform: rotate(50deg); filter: drop-shadow(-10px 10px 10px rgba(0,0,0,0.5)); }
-
-        /* --- Анимация Выхлопа и Вибрации --- */
-        .smoke-particle { fill: #94a3b8; opacity: 0; filter: blur(6px); }
-        .engine-running .smoke-particle { animation: smokeRise 2s infinite ease-out; }
-        .engine-running .smoke-1 { animation-delay: 0s; }
-        .engine-running .smoke-2 { animation-delay: 0.6s; }
-        .engine-running .smoke-3 { animation-delay: 1.2s; }
-
-        @keyframes smokeRise {
-            0% { transform: translate(540px, 100px) scale(0.3); opacity: 0; }
-            20% { opacity: 0.6; }
-            100% { transform: translate(620px, 60px) scale(3.5); opacity: 0; }
-        }
-
-        .engine-running .car-body-group { animation: engineVibe 0.04s infinite alternate; }
-        @keyframes engineVibe { from { transform: translateX(0); } to { transform: translateX(0.5px); } }
-
-        /* --- Свет и Аварийка --- */
-        .beam { opacity: 0; transition: opacity 0.4s; }
-        .lights-active .beam { opacity: 1; }
-
-        .turn-signal { opacity: 0.2; fill: var(--accent-orange); }
-        .hazards-active .turn-signal { animation: hazardBlink 0.8s infinite; }
-
-        @keyframes hazardBlink {
-            0%, 100% { opacity: 0.1; filter: drop-shadow(0 0 0px transparent); }
-            50% { opacity: 1; filter: drop-shadow(0 0 20px var(--accent-orange)); }
-        }
-
-        /* --- Панель управления --- */
-        .control-panel {
-            width: 100%;
-            background: var(--panel-bg);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255,255,255,0.05);
-            padding: 25px 15px 35px;
-            box-sizing: border-box;
-            border-radius: 30px 30px 0 0;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-            z-index: 10;
-        }
-
-        .btn {
-            flex: 1 1 calc(20% - 10px);
-            min-width: 60px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 16px;
-            padding: 14px 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.25s;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
-        .btn span { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 12px 34px;
+        }
 
-        .btn.active-engine { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-green); box-shadow: 0 5px 15px rgba(16, 185, 129, 0.1); }
-        .btn.active-sec { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: var(--accent-red); box-shadow: 0 5px 15px rgba(239, 68, 68, 0.1); }
-        .btn.active-doors { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-blue); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.1); }
-        .btn.active-lights { background: rgba(248, 250, 252, 0.1); border-color: rgba(248, 250, 252, 0.3); color: var(--text-main); box-shadow: 0 5px 15px rgba(255,255,255,0.05); }
-        .btn.active-hazards { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: var(--accent-orange); box-shadow: 0 5px 15px rgba(245, 158, 11, 0.1); }
+        .app-shell {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* --- ВЕРХНИЙ ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ --- */
+        .mode-switcher {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            background: #0a110f;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 5px;
+            gap: 4px;
+        }
+
+        .mode-tab {
+            padding: 10px 6px;
+            border-radius: 11px;
+            border: none;
+            background: transparent;
+            color: var(--text-sub);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .mode-tab.active {
+            background: #d2f4e3;
+            color: #071912;
+            box-shadow: 0 4px 14px rgba(138, 232, 192, 0.2);
+        }
+
+        .tab-pane { display: none; flex-direction: column; gap: 14px; }
+        .tab-pane.active { display: flex; }
+
+        /* --- ГЛАВНАЯ КАРТОЧКА ORBIT --- */
+        .orbit-card {
+            position: relative;
+            background: radial-gradient(circle at 50% 54%, var(--orbit-glow) 0%, rgba(11, 20, 17, 0.96) 68%), var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            padding: 20px 18px 18px;
+            overflow: hidden;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65);
+            isolation: isolate;
+            transition: background 0.5s ease, border-color 0.4s ease;
+        }
+
+        .orbit-card.disarmed-mode { border-color: rgba(255, 87, 87, 0.28); }
+
+        /* ФОНОВЫЕ КРУГИ */
+        .orbit-rings-bg {
+            position: absolute;
+            left: 50%;
+            top: 52%;
+            transform: translate(-50%, -50%);
+            width: 520px;
+            height: 520px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orbit-ring {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 1px solid var(--orbit-ring);
+            transition: border-color 0.45s ease, box-shadow 0.45s ease;
+        }
+
+        .orbit-card.disarmed-mode .orbit-ring { box-shadow: inset 0 0 18px rgba(255, 87, 87, 0.05); }
+
+        .orbit-ring.r1 { width: 170px; height: 170px; }
+        .orbit-ring.r2 { width: 275px; height: 275px; }
+        .orbit-ring.r3 { width: 380px; height: 380px; }
+        .orbit-ring.r4 { width: 485px; height: 485px; border-style: dashed; }
+
+        /* ШАПКА */
+        .orbit-header {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .brand-block { display: flex; align-items: center; gap: 12px; }
+        .brand-logo {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1rem; color: var(--text-main);
+        }
+        .brand-meta { display: flex; flex-direction: column; gap: 2px; }
+        .brand-year { font-size: 0.65rem; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-sub); font-weight: 600; }
+        .brand-model { font-size: 1.2rem; font-weight: 800; color: var(--text-main); }
+
+        .conn-pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 7px 13px; border-radius: 20px;
+            background: rgba(16, 28, 24, 0.85); border: 1px solid var(--border-color);
+            font-size: 0.74rem; color: #c9dfd5; font-weight: 500;
+        }
+        .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+
+        /* СТАТУС */
+        .hero-status { position: relative; z-index: 5; text-align: center; margin-bottom: 10px; }
+        .hero-kicker { font-size: 0.68rem; letter-spacing: 1.8px; text-transform: uppercase; color: var(--text-sub); font-weight: 600; }
+        .hero-headline { font-size: 1.65rem; font-weight: 800; margin: 4px 0 4px; letter-spacing: -0.4px; transition: color 0.3s ease; }
+        .hero-headline.az-timer { color: var(--mint); font-variant-numeric: tabular-nums; }
+        .hero-subline { font-size: 0.82rem; color: var(--text-sub); }
+
+        .orbit-badges-row {
+            position: relative; z-index: 6;
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+        }
+
+        .orbit-stat-pill {
+            background: rgba(14, 25, 21, 0.82); backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color); border-radius: 16px;
+            padding: 10px 14px; display: flex; flex-direction: column; gap: 3px;
+            transition: border-color 0.3s ease, background 0.3s ease;
+        }
+        .orbit-stat-pill.alarm { border-color: rgba(255, 87, 87, 0.55); background: rgba(255, 87, 87, 0.12); }
+        .stat-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-sub); font-weight: 600; }
+        .stat-value { font-size: 0.86rem; font-weight: 700; color: var(--text-main); }
+
+        /* СЦЕНА АВТОМОБИЛЯ */
+        .car-stage {
+            position: relative; width: 108%; margin-left: -4%;
+            aspect-ratio: 1212 / 732; z-index: 4; margin-top: -18px; margin-bottom: -22px;
+        }
+        .car-stage > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+        .car-stage .car-art { filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.7)); transition: filter 0.4s ease; }
+        .car-stage .fx { pointer-events: none; }
+
+        .headlight-glow { opacity: 0; transition: opacity 0.25s ease; }
+        .car-stage.lights-active .headlight-glow {
+            opacity: 1; filter: drop-shadow(0 0 20px rgba(255, 248, 205, 1)) drop-shadow(0 0 42px rgba(255, 220, 120, 0.88));
+        }
+
+        .turn-signal { opacity: 0; transition: opacity 70ms ease-in-out; }
+        .car-stage.hazards-on .turn-signal { opacity: 1; }
+
+        .smoke-particle {
+            fill: #9ab3a8; opacity: 0; filter: blur(6px);
+            transform-box: fill-box; transform-origin: center;
+        }
+        .car-stage.engine-running .smoke-particle { animation: smokeRise 2s infinite ease-out; }
+        .car-stage.engine-running .smoke-1 { animation-delay: 0s; }
+        .car-stage.engine-running .smoke-2 { animation-delay: 0.6s; }
+        .car-stage.engine-running .smoke-3 { animation-delay: 1.2s; }
+
+        @keyframes smokeRise {
+            0% { transform: translate(0, 0) scale(0.3); opacity: 0; }
+            20% { opacity: 0.55; }
+            100% { transform: translate(26px, -62px) scale(3.8); opacity: 0; }
+        }
+
+        .car-stage.engine-running .car-body-group { animation: engineVibe 0.12s infinite alternate; }
+        @keyframes engineVibe { from { transform: translateX(0); } to { transform: translateX(0.45px); } }
+
+        .door-view-open, .hood-view-open, .trunk-view-open { display: none; }
+        .car-stage.door-fl-open .door-view-closed { display: none !important; }
+        .car-stage.door-fl-open .door-view-open { display: inline !important; }
+        .car-stage.door-hood-open .hood-view-open { display: inline !important; }
+        .car-stage.door-trunk-open .trunk-view-open { display: inline !important; }
+
+        .door-puddle { opacity: 0; transition: opacity 0.28s ease; }
+        .car-stage.door-fl-open .puddle-fl { opacity: 1; animation: doorWarnPulse 1.8s infinite alternate ease-in-out; }
+        @keyframes doorWarnPulse { 0% { opacity: 0.75; } 100% { opacity: 1; filter: drop-shadow(0 0 12px rgba(255, 77, 77, 1)) drop-shadow(0 0 24px rgba(255, 77, 77, 0.8)); } }
+
+        /* КНОПКИ ДЕЙСТВИЙ (С ЗАЩИТОЙ УДЕРЖАНИЯ) */
+        .orbit-actions {
+            position: relative; z-index: 6;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;
+        }
+
+        .orbit-btn {
+            position: relative; overflow: hidden; touch-action: manipulation;
+            border-radius: 20px; padding: 14px; border: 1px solid var(--border-color);
+            background: rgba(18, 31, 26, 0.9); color: var(--text-main);
+            display: flex; align-items: center; gap: 11px; cursor: pointer; transition: all 0.25s ease; text-align: left;
+        }
+        .orbit-btn:active { transform: scale(0.98); }
+        .orbit-btn.busy { opacity: 0.65; pointer-events: none; }
+
+        .hold-progress-track {
+            position: absolute; left: 0; bottom: 0; width: 100%; height: 3px; background: rgba(255, 255, 255, 0.05); pointer-events: none;
+        }
+        .hold-progress-fill {
+            width: 100%; height: 100%; background: var(--mint); transform-origin: left; transform: scaleX(0); transition: transform 0.04s linear;
+        }
+        .orbit-btn.mint-active .hold-progress-fill { background: var(--mint-text); }
+        .orbit-btn.danger-state .hold-progress-fill { background: var(--danger); }
+
+        .orbit-btn-icon {
+            position: relative; width: 42px; height: 42px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0;
+        }
+
+        .hold-ring-svg {
+            position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); pointer-events: none; transform: rotate(-90deg);
+        }
+        .hold-ring-bg { fill: none; stroke: transparent; stroke-width: 2.5; }
+        .hold-ring-meter {
+            fill: none; stroke: var(--mint); stroke-width: 2.5; stroke-linecap: round;
+            stroke-dasharray: 113.1; stroke-dashoffset: 113.1; transition: stroke-dashoffset 0.04s linear;
+        }
+        .orbit-btn.mint-active .hold-ring-meter { stroke: var(--mint-text); }
+        .orbit-btn.danger-state .hold-ring-meter { stroke: var(--danger); }
+
+        .orbit-btn.holding .orbit-btn-sub { color: var(--mint) !important; font-weight: 600; }
+        .orbit-btn.mint-active.holding .orbit-btn-sub { color: var(--mint-text) !important; }
+
+        .orbit-btn-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+        .orbit-btn-title { font-size: 0.84rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .orbit-btn-sub { font-size: 0.7rem; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .orbit-btn-arrow { font-size: 0.95rem; opacity: 0.65; flex-shrink: 0; }
+
+        .orbit-btn.mint-active {
+            background: linear-gradient(135deg, #9ef3cc 0%, #7adbb0 100%);
+            border-color: #9ef3cc; color: var(--mint-text);
+            box-shadow: 0 10px 24px rgba(138, 232, 192, 0.22);
+        }
+        .orbit-btn.mint-active .orbit-btn-icon { background: rgba(6, 33, 22, 0.12); border-color: rgba(6, 33, 22, 0.18); color: var(--mint-text); }
+        .orbit-btn.mint-active .orbit-btn-sub { color: rgba(6, 33, 22, 0.75); }
+
+        .orbit-btn.danger-state { border-color: rgba(255, 87, 87, 0.45); background: rgba(255, 87, 87, 0.1); }
+        .orbit-btn.danger-state .orbit-btn-title { color: var(--danger); }
+
+        /* ПАНЕЛЬ ТЕСТИРОВАНИЯ КОНЦЕВИКОВ */
+        .sensors-bar {
+            position: relative; z-index: 6;
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+            margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .sensor-chip {
+            background: rgba(14, 24, 20, 0.85); border: 1px solid var(--border-color); color: var(--text-sub);
+            padding: 8px 2px; border-radius: 11px; font-size: 0.65rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 3px; transition: all 0.2s ease;
+        }
+        .sensor-chip:active { transform: scale(0.96); }
+        .sensor-chip.active-red { border-color: rgba(255, 87, 87, 0.5); background: rgba(255, 87, 87, 0.14); color: var(--danger); }
+        .sensor-chip.active-mint { border-color: rgba(138, 232, 192, 0.55); background: rgba(138, 232, 192, 0.14); color: var(--mint); }
+        .sensor-chip.active-amber { border-color: rgba(245, 185, 66, 0.5); background: rgba(245, 185, 66, 0.14); color: var(--amber); }
+
+        .orbit-footer {
+            position: relative; z-index: 6; display: flex; justify-content: space-between; align-items: center;
+            margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.66rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-sub);
+        }
+
+        /* НАСТРОЙКИ */
+        .section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; color: #8c93a0; margin-top: 4px; padding-left: 2px; }
+        .form-group {
+            background: #15181f; border: 1px solid #252a34; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px;
+        }
+        .form-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .form-label { font-size: 0.9rem; color: #f0f2f5; font-weight: 500; line-height: 1.25; }
+        .form-sublabel { font-size: 0.75rem; color: #8c93a0; margin-top: 2px; }
+        .form-val-badge {
+            font-family: monospace; font-size: 0.84rem; color: var(--accent-blue); background: #0f1217;
+            padding: 4px 10px; border-radius: 8px; border: 1px solid #252a34; white-space: nowrap;
+        }
+
+        input[type="range"] { width: 100%; accent-color: var(--accent-blue); height: 6px; border-radius: 6px; cursor: pointer; }
+        select {
+            background: #0f1217; border: 1px solid #252a34; color: #f0f2f5; padding: 7px 12px; border-radius: 8px; font-size: 0.82rem; outline: none; max-width: 62%;
+        }
+
+        .switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #0f1217; border: 1px solid #2b313d; transition: .3s; border-radius: 26px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #8c93a0; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: rgba(46, 184, 114, 0.25); border-color: var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(22px); background-color: var(--accent-blue); }
+
+        .btn-save {
+            width: 100%; padding: 15px; border-radius: 14px; border: none; background: linear-gradient(135deg, #9ef3cc 0%, #7adbb0 100%);
+            color: var(--mint-text); font-size: 0.95rem; font-weight: 800; cursor: pointer; transition: opacity 0.2s, transform 0.15s; margin-top: 4px;
+        }
+        .btn-save:active { transform: scale(0.99); opacity: 0.9; }
+
+        /* ЖУРНАЛ */
+        .log-toolbar { display: flex; justify-content: space-between; gap: 8px; }
+        .log-search {
+            flex: 1; background: #0f1217; border: 1px solid #252a34; padding: 10px 12px; border-radius: 10px; color: var(--text-main); font-size: 0.84rem; outline: none;
+        }
+        .btn-clear-log {
+            background: #15181f; border: 1px solid #252a34; color: var(--danger); padding: 10px 14px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+        }
+        .log-list {
+            background: #15181f; border: 1px solid #252a34; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; font-family: monospace;
+        }
+        .log-entry { font-size: 0.76rem; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); border-left: 3px solid var(--mint); display: flex; gap: 8px; }
+        .log-entry.warn { border-left-color: var(--amber); }
+        .log-entry.alarm { border-left-color: var(--danger); background: rgba(255, 87, 87, 0.08); }
     </style>
 </head>
 <body>
 
-    <div class="app-header">
-        <div>
-            <div class="header-title">VOLVO 850</div>
-            <div class="header-spec">DX BLE SMART ALARM</div>
+    <div class="app-shell">
+
+        <!-- ВЕРХНИЙ ПЕРЕКЛЮЧАТЕЛЬ ВКЛАДОК -->
+        <div class="mode-switcher">
+            <button class="mode-tab active" onclick="switchPane('orbit', this)">01 ORBIT</button>
+            <button class="mode-tab" onclick="switchPane('settings', this)">02 НАСТРОЙКИ</button>
+            <button class="mode-tab" onclick="switchPane('logs', this)">03 ЖУРНАЛ</button>
         </div>
-        <div class="badges-container">
-            <div class="status-badge" id="securityBadge">
-                <span id="securityIcon">🔒</span>
-                <span id="securityText">В охране</span>
+
+        <!-- ВКЛАДКА 1: ORBIT -->
+        <div id="pane-orbit" class="tab-pane active">
+            <div class="orbit-card" id="orbitCard">
+
+                <div class="orbit-rings-bg">
+                    <div class="orbit-ring r1"></div>
+                    <div class="orbit-ring r2"></div>
+                    <div class="orbit-ring r3"></div>
+                    <div class="orbit-ring r4"></div>
+                </div>
+
+                <div class="orbit-header">
+                    <div class="brand-block">
+                        <div class="brand-logo">V</div>
+                        <div class="brand-meta">
+                            <span class="brand-year">VOLVO · 1996</span>
+                            <span class="brand-model">850 GLT</span>
+                        </div>
+                    </div>
+                    <div class="conn-pill">
+                        <span class="conn-dot"></span>
+                        <span>Связь активна</span>
+                    </div>
+                </div>
+
+                <div class="hero-status">
+                    <div class="hero-kicker">МОЙ АВТОМОБИЛЬ</div>
+                    <h1 class="hero-headline" id="heroHeadline">Всё под контролем</h1>
+                    <p class="hero-subline" id="heroSubline">ДВС заглушен · автомобиль на связи</p>
+                </div>
+
+                <div class="orbit-badges-row">
+                    <div class="orbit-stat-pill" id="lockStatPill">
+                        <span class="stat-label">ЦЕНТРАЛЬНЫЙ ЗАМОК</span>
+                        <span class="stat-value" id="lockStatValue">В охране</span>
+                    </div>
+                    <div class="orbit-stat-pill" style="text-align: right;">
+                        <span class="stat-label">АКБ</span>
+                        <span class="stat-value">12.6 В · норма</span>
+                    </div>
+                </div>
+
+                <!-- СЦЕНА АВТОМОБИЛЯ -->
+                <div class="car-stage armed" id="carModel">
+                    <svg class="car-art" viewBox="0 0 1212 732" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g class="car-body-group" clip-path="url(#clip0_4_9)">
+                            <path d="M468 541.5H484L493.5 537.5L498.5 525V511.5L514 467L529.5 434L543 421L554 416.5L569 418H582.5L595.5 423L610 434L618 444.5L627.5 467L631.5 487L633 501.5L629.5 525V528L671.5 522L822 505.5L909.5 496L917.5 505.5L923.5 504V496L935 493.5L943 486.5L946 467L963.5 424L977 400.5L991 397.5L1006.5 400.5L1016.5 409.5L1023 421L1032.5 446L1035.5 462V472L1085 453L1090.5 443L1103.5 425.5L1109.5 400.5L1097.5 390.5L1092 387V338L1085 310L1073.5 299.5L1040 295L1010 293L966 249L931 220.5L886 215L756 210.5H610L531.5 218L516.5 224.5L473 250.5L395 309.5L307.5 325.5L211.5 349.5L164 365L152.5 371.5L145.5 385L143.5 407V421.5L122 428.5L115.5 436.5V454.5L119.5 464L130.5 471L143.5 475.5L147.5 489.5V504.5L152.5 512L238 526L285 530.5L353 541.5H445H468Z" fill="#626262"/>
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M485.5 543L490.5 554.5L501 568L511.5 578.5L531.5 584L568.5 585L587 579.5L608.5 567L625 539.5L630.5 510.5V486L625 462.5L616 441.5L600.5 426L580 418.5H556L544.5 419.5L532 431.5L521.5 448.5L509.5 482L499 515L497.5 529L492 538.5L488.5 542L485.5 543ZM551.5 459L543 473.5L536.5 490L535 511.5L539.5 535.5L549.5 551.5L569.5 563.5H584L600.5 553L612 537L619 515V493L614.5 471.5L606 457.5L597 448.5L585.5 444H575L564 448.5L551.5 459Z" fill="#383838"/>
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M923 496L927 514.5L939.5 532.5L954.5 537L979.5 538L1000 535L1021.5 515.5L1029.5 496L1033 463.5L1030.5 442L1023 422L1011 406L995.5 398H981.5L969.5 411.5L946 464.5L945 479.5L940.5 492L929 494.5L923 496ZM966 488L964 471V458L968 444.5L974 432L981.5 423.5L988 420L998.5 418.5L1008 423.5L1015 433L1021.5 447L1023 466L1021.5 482.5L1017 496L1011 506.5L1001.5 515.5L992 517.5L983.5 515.5L977 510L969.5 499L966 488Z" fill="#383838"/>
+                            <path d="M543 473.5L551.5 459L564 448.5L575 444H585.5L597 448.5L606 457.5L614.5 471.5L619 493V515L612 537L600.5 553L584 563.5H569.5L549.5 551.5L539.5 535.5L535 511.5L536.5 490L543 473.5Z" fill="#E0E0E0"/>
+                            <path d="M964 471L966 488L969.5 499L977 510L983.5 515.5L992 517.5L1001.5 515.5L1011 506.5L1017 496L1021.5 482.5L1023 466L1021.5 447L1015 433L1008 423.5L998.5 418.5L988 420L981.5 423.5L974 432L968 444.5L964 458V471Z" fill="#E0E0E0"/>
+                            <path d="M159.5 378.5L189.5 381L193.5 384V423L176.5 419.5L153.5 416L159.5 378.5Z" fill="#9C9C9C"/>
+                            <path d="M310.5 433.5L317 403L322 396.5L330.5 392.5L390 395L387 411L384 438L343.5 433.5H310.5Z" fill="#9C9C9C"/>
+                            <path d="M422 397.5L425.5 406.5L427 417L428.5 433.5V438.5L410.5 440.5H384L385.5 427L388.5 405.5L391 396L422 397.5Z" fill="#FFCB6B"/>
+                            <path d="M660 405.5H668L671 407.5V414.5L668.5 417H658L656 414.5V407.5L660 405.5Z" fill="#FFCB6B"/>
+                            <path d="M1088 329.5L1090.5 354.5V375.5H1083.5L1081 371V332L1083.5 329.5H1088Z" fill="#FFCB6B"/>
+                            <path d="M152 378H159L158 387L155.5 404L154 417.5L144.5 416.5L147 396.5L152 378Z" fill="#FFCB6B"/>
+                            <path d="M243 527.5L261.5 544L293 548.5L320 545L326.5 537.5L246.5 526L243 527.5Z" fill="#383838"/>
+                            <path d="M659.5 326.5L728.5 231L689 227L623.5 225.5L554.5 227L517 229L481.5 251L454.5 269L423.5 291.5L399 311H415.5L495.5 314L561 317L626 322.5L659.5 326.5Z" fill="#DCDCDC"/>
+                            <path d="M843.5 236L918 238L926.5 250.5L940.5 277L948.5 301.5V327.5L861 330.5L856.5 286L847.5 250.5L843.5 236Z" fill="#DCDCDC"/>
+                            <path d="M939 246L977 286L996 311.5L999 324.5H970.5L960 295L946.5 264L939 246Z" fill="#DCDCDC"/>
+
+                            <g class="door-view-closed" onclick="toggleZone('fl')" style="cursor: pointer;">
+                                <path d="M700 320.5L755 239.5L772.5 238L821.5 236L825.5 255.5L832.5 286V332.5L764 340V320.5L758.5 312L747 309.5H726H717.5L709.5 317L700 320.5Z" fill="#DCDCDC"/>
+                            </g>
+
+                            <rect width="1212" height="732" fill="url(#pattern0_4_9)"/>
+
+                            <g class="door-view-open" onclick="toggleZone('fl')" style="cursor: pointer;">
+                                <polygon points="682,330 750,232 836,236 845,435 680,442" fill="#181a20" />
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M900 431.5L901.5 422.5V417L905 409.5L906 354L905.685 342.5L905 317.5L899 285L881 236L796 233.5L756.5 232L751 233.5L746 237.5L716 282L682 329.5V342.5V347L683 357V385L682 428.5L681 434.5L684.5 438L900 431.5ZM884.5 285L871 247L832 246.152L777.5 244.967H757L752.5 248L731 282L708 315.173L705 319.5L708 326V341.5V345L762 344.258L852 343.022L890 342.5V317.5L884.5 285Z" fill="#4E4E4E"/>
+                                <path d="M900 442.5V431.5L684.5 438L683 449.5L900 442.5Z" fill="#4E4E4E"/>
+                                <path d="M674.5 492L888.5 485.5L895 460.5L900 442.5L683 449.5L680 451.5L674.5 492Z" fill="#4E4E4E"/>
+                                <path d="M830.66 234.519L828.5 228H796L772 229L756 231L764.5 231.5L779.244 233.021L799.253 233.596L818 234.147L830.66 234.519Z" fill="#4E4E4E"/>
+                                <path d="M705 319.5L708 326V341.5H711L720.5 340.5L735.5 341.5H755H762L764.5 338V329.5V321L762 315.173L757.5 311L750 309L740.5 308H728.5L720.5 309L714 311.5L708 315.173L705 319.5Z" fill="#4E4E4E"/>
+                                <path d="M752.5 248L731 282L708 315.173L714 311.5L720.5 309L728.5 308H740.5L750 309L757.5 311L762 315.173L764.5 321V329.5V338L762 341.5V344.258L852 343.022L850.5 338L847.5 335L846.5 330.5L845.5 314L844.5 304L842 285L838.5 268L835 256L832 246.152L777.5 244.967H757L752.5 248Z" fill="#DCDCDC"/>
+                                <path d="M900 431.5V442.5L895 460.5L888.5 485.5L674.5 492L680 451.5L683 449.5M900 442.5L683 449.5M684.5 438L681 434.5L682 428.5L683 385V357L682 347V342.5V329.5L716 282L746 237.5L751 233.5L756.5 232L796 233.5L881 236L899 285L905 317.5L905.685 342.5L906 354L905 409.5L901.5 417V422.5L900 431.5M900 431.5L684.5 438M682 347L708 345M684.5 438L683 449.5M708 315.173L731 282L752.5 248L757 244.967H777.5L832 246.152L871 247L884.5 285L890 317.5V342.5M890 342.5H905.685M762 344.258L852 343.022L890 342.5M708 345V341.5M708 345L762 344.258M860.5 361L862.5 357.5L867.5 355.5H878L882.5 357.5L884 360.5V361.5V371L883 374.5L878 377H871.5H865L861 373L860 368.5V363.5L860.5 361ZM860.5 361L854.5 361.5L852 366L853 369.5L857 371H867.5H887.5L891.5 368.5V364.5L888 361.5L878.5 361H860.5ZM691 431L881 425.5M708 315.173L705 319.5L708 326V341.5M708 315.173L714 311.5L720.5 309L728.5 308H740.5L750 309L757.5 311L762 315.173L764.5 321V329.5V338L762 341.5M762 341.5H755H735.5L720.5 340.5L711 341.5H708M762 341.5V344.258M852 343.022L850.5 338L847.5 335L846.5 330.5L845.5 314L844.5 304L842 285L838.5 268L835 256L832 246.152M830.66 234.519L828.5 228H796L772 229L756 231L764.5 231.5L779.244 233.021L799.253 233.596L818 234.147L830.66 234.519Z" stroke="black" stroke-width="3"/>
+                            </g>
+
+                            <g class="hood-view-open" onclick="toggleZone('hood')" style="cursor: pointer;">
+                                <path d="M309.5 435L306.5 440.5L305 441.5L300.5 441.5L268.5 440L248 439L206 433.5L199 432L196.5 429L195 423.5L194 416L194 406.5L195 389.5L194 385L192.5 382.5L188.5 381L163 378L157.5 378L155 377L154 375L154 371.5L156 369L166 364L189.5 355.5L250.5 339.5L305.5 326.5L363.5 315L386.5 311.5L442 312L505.5 313L590 319.5L628.5 324L650.5 327L624.5 332L549.5 347L485 361.5L421 379L405.5 384.5L400 388L398 390.5L396.5 393L395.5 394L390.5 394L371.5 392.5L331 391.5L325 392.5L320.5 396L317 400.5L314.5 407.5L312 424.5L309.5 435Z" fill="#252525" stroke="black"/>
+                                <path d="M194.54 342.089L191.859 338.339L187.01 336.406L162.779 332.265L155.396 330.611L154.531 329.029L155.966 324.136L162.924 319.227L187.577 312.865L253.817 301.633L316.938 291.631L364.048 286.745L392.789 285.26L444.457 291.316L507.127 297.839L565.592 306.501L628.863 317.594L657.986 323.17L639.163 326.03L527.115 338.75L463.54 348.209L412.461 358.267L401.607 361.829L397.638 367.001L395.88 369.858L363.681 365.014L336.375 361.606L329.9 361.036L324.246 362.545L318.46 365.55L314.403 371.717L306.189 396.593L302.909 405.339L298.164 407.933L282.225 406.529L227.701 398.716L210.941 395.232L197.259 391.016L192.131 386.549L191.251 379.444L192.259 367.989L193.97 348.564L194.54 342.089Z" fill="#4E4E4E"/>
+                                <path d="M194.54 342.089L191.859 338.339L187.01 336.406L162.779 332.265L155.396 330.611L154.531 329.029L155.966 324.136L162.924 319.227L187.577 312.865L253.817 301.633L316.938 291.631L364.048 286.745L392.789 285.26L444.457 291.316L507.127 297.839L565.592 306.501L628.863 317.594L657.986 323.17L639.163 326.03L527.115 338.75L463.54 348.209L412.461 358.267L401.607 361.829L397.638 367.001L395.88 369.858L363.681 365.014L336.375 361.606L329.9 361.036L324.246 362.545L318.46 365.55L314.403 371.717L306.189 396.593L302.909 405.339L298.164 407.933L282.225 406.529L227.701 398.716L210.941 395.232L197.259 391.016L192.131 386.549L191.251 379.444L192.259 367.989L193.97 348.564L194.54 342.089ZM194.54 342.089L196.604 335.745L199.621 329.988L205.949 326.53L215.353 322.338L245.66 314.467L287.057 306.066L332.438 298.015" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M301.5 378.5L306.5 360L308.73 350.639L311.571 346.873L315.233 345.188L320.932 343.18L333.734 340.292L353.1 336.978L416.22 326.976L445.635 323.543L490.753 318.482" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M508.859 318.068L525.558 316.527" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M533.117 316.189L566.428 314.103" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M492.758 307.114L488.773 306.763L490.985 304.448L492.758 307.114Z" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M205.526 337.033L205.602 337.042L254.193 343.83L254.245 343.839L294.78 350.922L294.973 350.969L299.368 352.36L300.208 353.028L302.392 356.734L302.566 357.812L300.868 365.693L300.85 365.766L291.891 399.109L291.405 399.869L288.154 402.594L286.924 402.921L276.054 400.96L276.053 400.96L216.767 390.218L216.718 390.208L200.955 386.812L200.819 386.776L196.424 385.385L195.481 384.506L194.66 382.426L194.562 381.744L194.646 380.79L195.666 357.814L195.671 357.748L196.68 346.293L196.722 346.048L198.244 340.159L198.612 339.499L200.824 337.184L202.039 336.726L205.526 337.033Z" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M245.741 359.146L244.338 375.084L233.878 374.163L234.141 371.175L235.282 358.225L236.776 358.356M236.776 358.356L240 358.927L243 359.141L245.741 359.146M245.741 359.146L246.75 347.69L250.236 347.997L249.757 359.141M202.099 341.751L199.718 380.19L202.12 381.405L205.585 342.058L208.574 342.321L205.607 381.712L208.551 382.474L213.056 342.715L216.997 343.564L212.99 383.366L216.13 383.643M227 374.5L222.979 378.237L216.13 383.643L213.269 385.901L216.17 387.16L232.882 374.075L232.149 370.999L231.07 371.851L227 374.5ZM216.13 383.643L220.938 344.413L224 344.413L219.5 380.5L222.979 378.237M222.979 378.237L227.413 344.984L230 344.984L227 374.5M231.07 371.851L234.386 345.598L237.872 345.905L236.776 358.356M240 358.927L241.5 347L244.26 347.471L243 359.141M251.5 362L246.75 365L247.104 360.772L249.757 359.141L265.677 349.357L270.072 350.748L251.5 362ZM251.5 362L248 391.5L244.472 390.656L246.75 366" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M222.629 382.207L222.322 385.694L225.809 386.001L226.423 379.028L230 376.5L228.753 386.762L232.694 387.611L233.878 374.163L237.863 374.514L236.635 388.46L241.073 389.353L241.847 374.865" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M296.661 356.603L286.545 397.373L283.059 397.066L292.222 355.71L287.783 354.817L279.616 396.261L275.133 395.866L283.344 353.924L278.363 353.486L271.193 395.017L266.212 394.578L273.47 352.051L269.032 351.158L262 394L258 393.5L264 354.817L259.5 357.5L254 392.5L251 392L255 360" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="bevel"/>
+                                <path d="M253.563 355.819L254.177 348.846L258.66 349.241L258.265 353.724" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="bevel"/>
+                            </g>
+
+                            <g class="trunk-view-open" onclick="toggleZone('trunk')" style="cursor: pointer;">
+                                <path d="M1020 254.5H976L1012.5 291H1023L1039 282L1062.5 267H1066.5L1069.5 272L1071.5 278L1073.5 282H1076.5L1079 280.5L1080 277.5L1078.5 271L1075 264L1068.5 255.5L1067 254.5H1020Z" fill="#4E4E4E"/>
+                                <path d="M1062.5 267L1039 282H1073.5L1071.5 278L1069.5 272L1066.5 267H1062.5Z" fill="black"/>
+                                <path d="M976 254.5V253H972.379L974.939 255.561L976 254.5ZM1067 254.5L1067.83 253.252L1067.45 253H1067V254.5ZM1068.5 255.5L1069.69 254.589L1069.54 254.39L1069.33 254.252L1068.5 255.5ZM1068.5 257L1069.33 258.248L1070 257.803V257H1068.5ZM1062.5 261L1063.27 262.286L1063.3 262.268L1063.33 262.248L1062.5 261ZM1023 291V292.5H1023.39L1023.74 292.307L1023 291ZM1062.5 267V265.5H1062.06L1061.69 265.736L1062.5 267ZM1066.5 267L1067.79 266.228L1067.35 265.5H1066.5V267ZM1069.5 272L1070.92 271.526L1070.87 271.369L1070.79 271.228L1069.5 272ZM1071.5 278L1070.08 278.474L1070.11 278.575L1070.16 278.671L1071.5 278ZM1079 280.5L1079.77 281.786L1080.25 281.501L1080.42 280.974L1079 280.5ZM1080 277.5L1081.42 277.974L1081.56 277.574L1081.46 277.163L1080 277.5ZM1078.5 271L1079.96 270.663L1079.92 270.489L1079.84 270.329L1078.5 271ZM1075 264L1076.34 263.329L1076.28 263.202L1076.19 263.089L1075 264ZM1076.5 282V283.5H1076.92L1077.27 283.286L1076.5 282ZM1012.5 291L1011.44 292.061C1011.72 292.342 1012.1 292.5 1012.5 292.5V291ZM976 254.5V256H1020V254.5V253H976V254.5ZM1020 254.5V256H1067V254.5V253H1020V254.5ZM1067 254.5L1066.17 255.748L1067.67 256.748L1068.5 255.5L1069.33 254.252L1067.83 253.252L1067 254.5ZM1068.5 255.5H1067V257H1068.5H1070V255.5H1068.5ZM1068.5 257L1067.67 255.752L1061.67 259.752L1062.5 261L1063.33 262.248L1069.33 258.248L1068.5 257ZM1023 291L1023.74 292.307L1039.74 283.307L1039 282L1038.26 280.693L1022.26 289.693L1023 291ZM1039 282L1039.81 283.264L1063.31 268.264L1062.5 267L1061.69 265.736L1038.19 280.736L1039 282ZM1062.5 267V268.5H1066.5V267V265.5H1062.5V267ZM1066.5 267L1065.21 267.772L1068.21 272.772L1069.5 272L1070.79 271.228L1067.79 266.228L1066.5 267ZM1069.5 272L1068.08 272.474L1070.08 278.474L1071.5 278L1072.92 277.526L1070.92 271.526L1069.5 272ZM1071.5 278L1070.16 278.671L1072.16 282.671L1073.5 282L1074.84 281.329L1072.84 277.329L1071.5 278ZM1079 280.5L1080.42 280.974L1081.42 277.974L1080 277.5L1078.58 277.026L1077.58 280.026L1079 280.5ZM1080 277.5L1081.46 277.163L1079.96 270.663L1078.5 271L1077.04 271.337L1078.54 277.837L1080 277.5ZM1078.5 271L1079.84 270.329L1076.34 263.329L1075 264L1073.66 264.671L1077.16 271.671L1078.5 271ZM1075 264L1076.19 263.089L1069.69 254.589L1068.5 255.5L1067.31 256.411L1073.81 264.911L1075 264ZM1073.5 282V280.5H1039V282V283.5H1073.5V282ZM1073.5 282V283.5H1076.5V282V280.5H1073.5V282ZM1076.5 282L1077.27 283.286L1079.77 281.786L1079 280.5L1078.23 279.214L1075.73 280.714L1076.5 282ZM976 254.5L974.939 255.561L1011.44 292.061L1012.5 291L1013.56 289.939L977.061 253.439L976 254.5ZM1012.5 291V292.5H1023V291V289.5H1012.5V291ZM1062.5 261L1061.73 259.714L1011.73 289.714L1012.5 291L1013.27 292.286L1063.27 262.286L1062.5 261Z" fill="black"/>
+                            </g>
+                        </g>
+
+                        <defs>
+                            <pattern id="pattern0_4_9" patternContentUnits="objectBoundingBox" width="1" height="1">
+                                <use xlink:href="#image0_4_9" transform="scale(0.000825083 0.00136612)"/>
+                            </pattern>
+                            <clipPath id="clip0_4_9">
+                                <rect width="1212" height="732" />
+                            </clipPath>
+                            <image id="image0_4_9" width="1212" height="732" preserveAspectRatio="none" xlink:href="volvo-850-lines.png"/>
+                        </defs>
+                    </svg>
+
+                    <svg class="fx" viewBox="0 0 1212 732" aria-hidden="true">
+                        <defs>
+                            <radialGradient id="headlightGlow" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#fff" stop-opacity="1" />
+                                <stop offset=".35" stop-color="#fff8d8" stop-opacity=".94" />
+                                <stop offset=".72" stop-color="#ffeaa8" stop-opacity=".52" />
+                                <stop offset="1" stop-color="#ffeaa8" stop-opacity="0" />
+                            </radialGradient>
+                            <filter id="headlightBloom" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="11" /></filter>
+
+                            <radialGradient id="hazardGlow" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#fff5cc" stop-opacity="1" />
+                                <stop offset=".3" stop-color="#ffb300" stop-opacity=".95" />
+                                <stop offset=".65" stop-color="#ff8800" stop-opacity=".55" />
+                                <stop offset="1" stop-color="#ff7700" stop-opacity="0" />
+                            </radialGradient>
+                            <filter id="hazardBloom" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="9" /></filter>
+
+                            <linearGradient id="doorPuddleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="rgba(255, 77, 77, 0.55)" />
+                                <stop offset="100%" stop-color="rgba(255, 77, 77, 0)" />
+                            </linearGradient>
+                        </defs>
+
+                        <polygon class="door-puddle puddle-fl" points="674,492 888,485 940,580 620,595" fill="url(#doorPuddleGrad)" />
+
+                        <g class="headlight-glow" fill="url(#headlightGlow)" filter="url(#headlightBloom)">
+                            <ellipse cx="174" cy="401" rx="45" ry="29" />
+                            <ellipse cx="350" cy="415" rx="61" ry="33" />
+                        </g>
+                        <g class="turn-signal" fill="url(#hazardGlow)" filter="url(#hazardBloom)">
+                            <ellipse cx="151" cy="398" rx="16" ry="24" />
+                            <ellipse cx="420" cy="417" rx="16" ry="28" />
+                            <ellipse cx="663" cy="411" rx="15" ry="10" />
+                            <ellipse cx="1085" cy="352" rx="14" ry="28" />
+                        </g>
+                        <g id="exhaust-system">
+                            <circle cx="1098" cy="451" r="7" class="smoke-particle smoke-1" />
+                            <circle cx="1098" cy="451" r="9" class="smoke-particle smoke-2" />
+                            <circle cx="1098" cy="451" r="11" class="smoke-particle smoke-3" />
+                        </g>
+                    </svg>
+                </div>
+
+                <div class="orbit-badges-row">
+                    <div class="orbit-stat-pill">
+                        <span class="stat-label">ДВИГАТЕЛЬ</span>
+                        <span class="stat-value" id="rpmStatValue">0 RPM</span>
+                    </div>
+                    <div class="orbit-stat-pill" style="text-align: right;">
+                        <span class="stat-label">ТЕМПЕРАТУРА</span>
+                        <span class="stat-value">ОЖ 87° · салон 21°</span>
+                    </div>
+                </div>
+
+                <!-- КНОПКИ ДЕЙСТВИЙ (С УДЕРЖАНИЕМ 1.1 сек) -->
+                <div class="orbit-actions">
+                    <button class="orbit-btn" id="btnEngine">
+                        <div class="hold-progress-track"><div class="hold-progress-fill"></div></div>
+                        <div class="orbit-btn-icon">
+                            <svg class="hold-ring-svg" viewBox="0 0 40 40">
+                                <circle class="hold-ring-bg" cx="20" cy="20" r="18" />
+                                <circle class="hold-ring-meter" cx="20" cy="20" r="18" />
+                            </svg>
+                            <span>⏻</span>
+                        </div>
+                        <div class="orbit-btn-text">
+                            <span class="orbit-btn-title" id="btnEngineTitle">Запустить ДВС</span>
+                            <span class="orbit-btn-sub" id="btnEngineSub">Удерживайте 1 сек</span>
+                        </div>
+                        <span class="orbit-btn-arrow">↗</span>
+                    </button>
+
+                    <button class="orbit-btn" id="btnSecurity">
+                        <div class="hold-progress-track"><div class="hold-progress-fill"></div></div>
+                        <div class="orbit-btn-icon">
+                            <svg class="hold-ring-svg" viewBox="0 0 40 40">
+                                <circle class="hold-ring-bg" cx="20" cy="20" r="18" />
+                                <circle class="hold-ring-meter" cx="20" cy="20" r="18" />
+                            </svg>
+                            <span id="btnSecIcon">🔒</span>
+                        </div>
+                        <div class="orbit-btn-text">
+                            <span class="orbit-btn-title" id="btnSecTitle">Снять с охраны</span>
+                            <span class="orbit-btn-sub" id="btnSecSub">Удерживайте 1 сек</span>
+                        </div>
+                        <span class="orbit-btn-arrow">↗</span>
+                    </button>
+                </div>
+
+                <!-- СЕНСОРЫ ДЛЯ ТЕСТА -->
+                <div class="sensors-bar">
+                    <button class="sensor-chip" id="sensor-fl" onclick="toggleZone('fl')">🚪 Двери</button>
+                    <button class="sensor-chip" id="sensor-hood" onclick="toggleZone('hood')">🚗 Капот</button>
+                    <button class="sensor-chip" id="sensor-trunk" onclick="toggleZone('trunk')">📦 Багаж.</button>
+                    <button class="sensor-chip" id="btn-ign" onclick="toggleKeyIgnition()">🔑 Зажиг.</button>
+                    <button class="sensor-chip" id="btn-brake" onclick="pressBrake()">🛑 Тормоз</button>
+                    <button class="sensor-chip" id="btn-haz" onclick="toggleHazards()">⚠️ Авар.</button>
+                </div>
+
+                <div class="orbit-footer">
+                    <span>ОХРАННЫЙ КОМПЛЕКС · ONLINE</span>
+                    <span id="lastUpdateText">Обновлено сейчас</span>
+                </div>
+
             </div>
-            <div class="status-badge" id="statusBadge">
-                <div class="status-dot"></div>
-                <span id="statusText">ДВС заглушен</span>
+        </div>
+
+        <!-- ВКЛАДКА 2: НАСТРОЙКИ СО СИРЕНОЙ И КОМФОРТОМ -->
+        <div id="pane-settings" class="tab-pane">
+
+            <div class="section-title">ПАРАМЕТРЫ СИРЕНЫ И ОПОВЕЩЕНИЙ</div>
+            <div class="form-group">
+                <div class="form-row">
+                    <span class="form-label">Громкость сирены</span>
+                    <span class="form-val-badge" id="sirenVolVal">Средняя</span>
+                </div>
+                <input type="range" min="1" max="3" value="2" oninput="updateSirenVolumeLabel(this.value)">
+
+                <div class="form-row">
+                    <span class="form-label">Тональность / Звук сирены</span>
+                    <select id="sirenToneSelect" onchange="addLog('Изменен тон сирены: ' + this.value)">
+                        <option selected>Евро-Бип (Классика)</option>
+                        <option>Мягкий Chirp (Volvo Style)</option>
+                        <option>Двойной пульс</option>
+                        <option>Мелодичный трель</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title">АВТОЗАПИРАНИЕ ЦЗ (SPEED LOCK)</div>
+            <div class="form-group">
+                <div class="form-row">
+                    <div>
+                        <div class="form-label">Запирание в движении</div>
+                        <div class="form-sublabel">Автозакрытие дверей при начале поездки</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="autoLockDriveToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <span class="form-label">Условие запирания</span>
+                    <select id="autoLockCondition">
+                        <option>По скорости (>15 км/ч)</option>
+                        <option selected>Перевод АКПП из положения «P»</option>
+                    </select>
+                </div>
+
+                <div class="form-row" style="margin-top: 4px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                    <div>
+                        <div class="form-label">Отпирание при глушении</div>
+                        <div class="form-sublabel">Разблокировать двери при выключении зажигания</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="autoUnlockStopToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="section-title">СВОБОДНЫЕ РУКИ (HANDS-FREE BLE)</div>
+            <div class="form-group">
+                <div class="form-row">
+                    <div>
+                        <div class="form-label">Функция «Свободные руки»</div>
+                        <div class="form-sublabel">Снятие/постановка по BLE метке</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="handsFreeToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <span class="form-label">Дальность обнаружения</span>
+                    <span class="form-val-badge" id="hfRangeVal">5 м (RSSI -65)</span>
+                </div>
+                <input type="range" min="1" max="10" value="5" oninput="document.getElementById('hfRangeVal').innerText = this.value + ' м (RSSI ' + (-85 + this.value*4) + ')'">
+            </div>
+
+            <div class="section-title">ВЕЖЛИВЫЙ СВЕТ И POWER LATCH</div>
+            <div class="form-group">
+                <div class="form-row">
+                    <div>
+                        <div class="form-label">Вежливая подсветка салона и фар</div>
+                        <div class="form-sublabel">Вкл. плафон при глушении, выкл. при охране</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="politeLightToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <div>
+                        <div class="form-label">Power Latch (Питание аксессуаров)</div>
+                        <div class="form-sublabel">Магнитола работает до открытия двери</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="powerLatchToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn-save" onclick="saveSettings()">Сохранить конфигурацию</button>
+        </div>
+
+        <!-- ВКЛАДКА 3: ЖУРНАЛ СОБЫТИЙ -->
+        <div id="pane-logs" class="tab-pane">
+            <div class="log-toolbar">
+                <input type="text" class="log-search" placeholder="Поиск по логам..." id="logSearchInput" oninput="filterLogs()">
+                <button class="btn-clear-log" onclick="clearLogs()">Очистить</button>
+            </div>
+            <div class="log-list" id="logList">
+                <div class="log-entry">
+                    <span>[02:00]</span>
+                    <span>Система Orbit готова. Охрана активна.</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Интерактивная сцена автомобиля -->
-    <div class="car-stage armed" id="carModel">
-        <svg viewBox="0 0 650 360">
-            <defs>
-                <linearGradient id="paintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="#1e232d" />
-                    <stop offset="20%" stop-color="#2a3240" />
-                    <stop offset="50%" stop-color="#3b465a" />
-                    <stop offset="80%" stop-color="#2a3240" />
-                    <stop offset="100%" stop-color="#1e232d" />
-                </linearGradient>
-
-                <linearGradient id="glassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#05070a" />
-                    <stop offset="45%" stop-color="#0a0e15" />
-                    <stop offset="50%" stop-color="#1f2c42" />
-                    <stop offset="55%" stop-color="#0a0e15" />
-                    <stop offset="100%" stop-color="#05070a" />
-                </linearGradient>
-
-                <linearGradient id="lightBeam" x1="100%" y1="0%" x2="0%" y2="0%">
-                    <stop offset="0%" stop-color="rgba(255, 255, 255, 0.85)" />
-                    <stop offset="40%" stop-color="rgba(255, 255, 255, 0.15)" />
-                    <stop offset="100%" stop-color="rgba(255, 255, 255, 0)" />
-                </linearGradient>
-            </defs>
-
-            <!-- Тень под авто -->
-            <rect x="90" y="75" width="490" height="210" rx="20" fill="rgba(0,0,0,0.6)" filter="blur(15px)" />
-
-            <!-- Кольцо периметра охраны -->
-            <rect x="25" y="25" width="600" height="310" rx="155" class="security-ring" />
-
-            <!-- Лучи света фар -->
-            <path class="beam" d="M 86,90 L -100,10 L -100,210 L 86,130 Z" fill="url(#lightBeam)" />
-            <path class="beam" d="M 86,230 L -100,150 L -100,350 L 86,270 Z" fill="url(#lightBeam)" />
-
-            <g class="car-body-group">
-                <!-- Салон -->
-                <rect x="100" y="90" width="450" height="180" rx="8" fill="#0d1117" />
-                
-                <!-- Бампера -->
-                <rect x="85" y="85" width="20" height="190" rx="4" fill="#181818" stroke="#222" stroke-width="1" />
-                <rect x="545" y="85" width="20" height="190" rx="4" fill="#181818" stroke="#222" stroke-width="1" />
-
-                <!-- Кузов -->
-                <path d="M 100,90 L 100,270 L 200,270 L 200,90 Z" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" stroke-linejoin="round" />
-                <line x1="100" y1="120" x2="195" y2="120" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
-                <line x1="100" y1="240" x2="195" y2="240" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
-                
-                <rect x="87" y="145" width="12" height="70" rx="1" fill="#050505" stroke="#111" />
-                <line x1="99" y1="150" x2="87" y2="210" stroke="#777" stroke-width="1.5" />
-
-                <polygon points="200,90 200,270 240,255 240,105" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" stroke-linejoin="round" />
-                
-                <path d="M 460,90 L 460,270 L 550,270 L 550,90 Z" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" stroke-linejoin="round" />
-                <polygon points="460,90 460,270 420,255 420,105" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" stroke-linejoin="round" />
-
-                <rect x="240" y="105" width="180" height="150" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
-                <rect x="270" y="135" width="50" height="90" rx="4" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
-
-                <!-- Двери -->
-                <g class="door door-fl">
-                    <rect x="240" y="90" width="100" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
-                    <rect x="245" y="100" width="90" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
-                    <rect x="245" y="75" width="22" height="15" rx="3" fill="#181818" />
-                </g>
-
-                <g class="door door-fr">
-                    <rect x="240" y="245" width="100" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
-                    <rect x="245" y="245" width="90" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
-                    <rect x="245" y="270" width="22" height="15" rx="3" fill="#181818" />
-                </g>
-
-                <g class="door door-rl">
-                    <rect x="340" y="90" width="80" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
-                    <rect x="340" y="100" width="75" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
-                </g>
-
-                <g class="door door-rr">
-                    <rect x="340" y="245" width="80" height="25" fill="url(#paintGrad)" stroke="#2a3240" stroke-width="1" />
-                    <rect x="340" y="245" width="75" height="15" fill="url(#glassGrad)" stroke="#1a2235" stroke-width="1" />
-                </g>
-
-                <!-- Оптика -->
-                <rect x="86" y="90" width="12" height="40" rx="2" fill="#e2e8f0" />
-                <rect x="86" y="230" width="12" height="40" rx="2" fill="#e2e8f0" />
-
-                <rect x="535" y="90" width="18" height="35" rx="2" fill="#dc2626" />
-                <rect x="535" y="235" width="18" height="35" rx="2" fill="#dc2626" />
-
-                <rect x="87" y="85" width="14" height="8" rx="1" class="turn-signal" />
-                <rect x="87" y="267" width="14" height="8" rx="1" class="turn-signal" />
-                <rect x="537" y="85" width="14" height="12" rx="1" class="turn-signal" />
-                <rect x="537" y="263" width="14" height="12" rx="1" class="turn-signal" />
-            </g>
-
-            <!-- Дым выхлопа -->
-            <g id="exhaust-system">
-                <circle cx="0" cy="0" r="10" class="smoke-particle smoke-1" />
-                <circle cx="0" cy="0" r="12" class="smoke-particle smoke-2" />
-                <circle cx="0" cy="0" r="15" class="smoke-particle smoke-3" />
-            </g>
-        </svg>
-    </div>
-
-    <!-- Панель управления -->
-    <div class="control-panel">
-        <div class="btn" id="btnEngine" onclick="toggleEngine()">
-            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            <span>Мотор</span>
-        </div>
-        
-        <div class="btn" id="btnSecurity" onclick="toggleSecurity()">
-            <svg viewBox="0 0 24 24" id="shieldIcon">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <span>Охрана</span>
-        </div>
-
-        <div class="btn" id="btnDoors" onclick="toggleDoors()">
-            <svg viewBox="0 0 24 24">
-                <path d="M18 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2zM10 12a1 1 0 11-2 0 1 1 0 012 0z"/>
-            </svg>
-            <span>Двери</span>
-        </div>
-
-        <div class="btn" id="btnLights" onclick="toggleLights()">
-            <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2v2M4.22 4.22l1.42 1.42M19.78 4.22l-1.42 1.42M2 12h2M20 12h2M12 17a5 5 0 100-10 5 5 0 000 10z"/></svg>
-            <span>Свет</span>
-        </div>
-
-        <div class="btn" id="btnHazards" onclick="toggleHazards()">
-            <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
-            <span>Сигнал</span>
-        </div>
     </div>
 
     <script>
         const car = document.getElementById('carModel');
-        const statusBadge = document.getElementById('statusBadge');
-        const statusText = document.getElementById('statusText');
+        const orbitCard = document.getElementById('orbitCard');
+        const heroHeadline = document.getElementById('heroHeadline');
+        const heroSubline = document.getElementById('heroSubline');
+        const lockStatPill = document.getElementById('lockStatPill');
+        const lockStatValue = document.getElementById('lockStatValue');
+        const rpmStatValue = document.getElementById('rpmStatValue');
+        const logList = document.getElementById('logList');
 
-        const secBadge = document.getElementById('securityBadge');
-        const secIcon = document.getElementById('securityIcon');
-        const secText = document.getElementById('securityText');
+        const states = { hood: false, fl: false, trunk: false };
+        const zoneNames = { hood: 'Капот', fl: 'Двери', trunk: 'Багажник' };
 
-        function toggleEngine() {
-            const isRunning = car.classList.toggle('engine-running');
-            document.getElementById('btnEngine').classList.toggle('active-engine');
-            statusBadge.classList.toggle('engine-on-ui', isRunning);
-            statusText.innerText = isRunning ? 'ДВС запущен' : 'ДВС заглушен';
+        let isArmed = true;
+        let isEngineRunning = false;
+        let isKeyIgnOn = false;
+        let isHazardsOn = false;
+        let isSignalSequenceActive = false;
+
+        let engineMode = 'OFF'; // 'OFF' | 'REMOTE_START' | 'DRIVE'
+        let azRemainingSec = 0;
+        let azTimerInterval = null;
+
+        const btnEngineEl = document.getElementById('btnEngine');
+        const btnSecurityEl = document.getElementById('btnSecurity');
+        const btnIgnEl = document.getElementById('btn-ign');
+        const btnBrakeEl = document.getElementById('btn-brake');
+
+        function switchPane(paneId, btn) {
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            document.getElementById('pane-' + paneId).classList.add('active');
+            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
         }
 
-        function toggleSecurity() {
-            const isArmed = car.classList.toggle('armed');
-            car.classList.toggle('disarmed', !isArmed);
-            
-            const btn = document.getElementById('btnSecurity');
-            btn.classList.toggle('active-sec', !isArmed);
-            
-            if (!isArmed) {
-                secBadge.classList.add('badge-disarmed');
-                secIcon.innerText = '🔓';
-                secText.innerText = 'Снято с охраны';
+        function addLog(text, type = '') {
+            const now = new Date();
+            const time = '[' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ']';
+            const div = document.createElement('div');
+            div.className = 'log-entry ' + type;
+            div.innerHTML = `<span>${time}</span><span>${text}</span>`;
+            logList.prepend(div);
+        }
+
+        function clearLogs() {
+            logList.innerHTML = '';
+            addLog('Журнал событий очищен.');
+        }
+
+        function filterLogs() {
+            const query = document.getElementById('logSearchInput').value.toLowerCase();
+            document.querySelectorAll('.log-entry').forEach(item => {
+                item.style.display = item.innerText.toLowerCase().includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        function updateSirenVolumeLabel(val) {
+            const labels = ['Тихо (Ночной)', 'Средняя', 'Громко (Максимум)'];
+            document.getElementById('sirenVolVal').innerText = labels[val - 1];
+        }
+
+        function saveSettings() {
+            addLog('Конфигурация сирены и комфорта успешно сохранена в контроллер.');
+            alert('Настройки успешно применены!');
+        }
+
+        function formatAzTime(sec) {
+            return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+        }
+
+        function startAzCountdown() {
+            stopAzCountdown();
+            azRemainingSec = 15 * 60;
+            syncOrbitUI();
+
+            azTimerInterval = setInterval(() => {
+                if (engineMode !== 'REMOTE_START') { stopAzCountdown(); return; }
+                azRemainingSec--;
+                if (azRemainingSec <= 0) {
+                    stopAzCountdown();
+                    addLog('Время прогрева АЗ истекло. ДВС остановлен.', 'warn');
+                    stopEngineInternal();
+                } else { syncOrbitUI(); }
+            }, 1000);
+        }
+
+        function stopAzCountdown() {
+            if (azTimerInterval) { clearInterval(azTimerInterval); azTimerInterval = null; }
+        }
+
+        function syncOrbitUI() {
+            const openCount = Object.keys(states).filter(k => states[k]).length;
+            const showRedRings = (!isArmed && engineMode !== 'DRIVE') || (openCount > 0 && isArmed);
+            orbitCard.classList.toggle('disarmed-mode', showRedRings);
+            heroHeadline.classList.remove('az-timer');
+
+            if (openCount > 0 && isArmed) {
+                heroHeadline.innerText = 'Тревога периметра';
+                heroHeadline.style.color = 'var(--danger)';
+                heroSubline.innerText = 'Нарушен контур охраны!';
+                lockStatPill.classList.add('alarm');
+                lockStatValue.innerText = `Открыто зон: ${openCount}`;
+                return;
+            }
+
+            lockStatPill.classList.remove('alarm');
+            lockStatValue.innerText = openCount > 0 ? `Открыто зон: ${openCount}` : (isArmed ? 'В охране' : 'Открыто');
+
+            if (engineMode === 'REMOTE_START') {
+                heroHeadline.classList.add('az-timer');
+                heroHeadline.style.color = 'var(--mint)';
+                heroHeadline.innerText = `АЗ · ${formatAzTime(azRemainingSec)}`;
+                heroSubline.innerText = isKeyIgnOn ? 'Зажигание включено · нажмите тормоз' : 'Ожидание владельца · ДВС прогревается';
+                return;
+            }
+
+            if (engineMode === 'DRIVE') {
+                heroHeadline.innerText = 'В поездке';
+                heroHeadline.style.color = 'var(--mint)';
+                heroSubline.innerText = 'Мягкая посадка выполнена · ДВС работает от ключа';
+                return;
+            }
+
+            if (openCount > 0 && !isArmed) {
+                heroHeadline.innerText = 'Открыт кузов';
+                heroHeadline.style.color = 'var(--amber)';
+                heroSubline.innerText = 'ДВС заглушен · снято с охраны';
+            } else if (!isArmed) {
+                heroHeadline.innerText = 'Снято с охраны';
+                heroHeadline.style.color = 'var(--danger)';
+                heroSubline.innerText = 'Замки открыты';
             } else {
-                secBadge.classList.remove('badge-disarmed');
-                secIcon.innerText = '🔒';
-                secText.innerText = 'В охране';
+                heroHeadline.innerText = 'Всё под контролем';
+                heroHeadline.style.color = 'var(--text-main)';
+                heroSubline.innerText = 'ДВС заглушен · автомобиль на связи';
             }
         }
 
-        function toggleDoors() {
-            car.classList.toggle('doors-open');
-            document.getElementById('btnDoors').classList.toggle('active-doors');
+        function setControlsBusy(busy) {
+            [btnEngineEl, btnSecurityEl].forEach(btn => btn.classList.toggle('busy', busy));
         }
 
-        function toggleLights() {
-            car.classList.toggle('lights-active');
-            document.getElementById('btnLights').classList.toggle('active-lights');
+        // Сигнал сиреной и аварийкой
+        async function pulseSirenAndHazards(beepsCount) {
+            for (let i = 0; i < beepsCount; i++) {
+                car.classList.add('hazards-on');
+                addLog('🔊 Сирена: Бип!');
+                await new Promise(r => setTimeout(r, 220));
+                car.classList.remove('hazards-on');
+                if (i < beepsCount - 1) await new Promise(r => setTimeout(r, 180));
+            }
+            if (isHazardsOn) car.classList.add('hazards-on');
+        }
+
+        async function flashHazards(count) {
+            for (let i = 0; i < count; i++) {
+                car.classList.add('hazards-on');
+                await new Promise(r => setTimeout(r, 350));
+                car.classList.remove('hazards-on');
+                if (i < count - 1) await new Promise(r => setTimeout(r, 220));
+            }
+            if (isHazardsOn) car.classList.add('hazards-on');
+        }
+
+        function stopEngineInternal() {
+            stopAzCountdown();
+            isEngineRunning = false;
+            engineMode = 'OFF';
+            car.classList.remove('engine-running', 'lights-active');
+            btnEngineEl.classList.remove('mint-active');
+
+            document.getElementById('btnEngineTitle').innerText = 'Запустить ДВС';
+            document.getElementById('btnEngineSub').innerText = 'Удерживайте 1 сек';
+            rpmStatValue.innerText = '0 RPM';
+            rpmStatValue.style.color = 'var(--text-main)';
+            
+            // Power Latch: если зажигание выключено, но дверь еще не открывали — аксессуары активны
+            if (document.getElementById('powerLatchToggle')?.checked) {
+                addLog('Power Latch: двигатель заглушен, магнитола и ACC активны до открытия двери.');
+            }
+
+            syncOrbitUI();
+        }
+
+        function toggleZone(zone) {
+            states[zone] = !states[zone];
+            car.classList.toggle('door-' + zone + '-open', states[zone]);
+            document.getElementById('sensor-' + zone).classList.toggle('active-red', states[zone]);
+            addLog(`${zoneNames[zone]}: ${states[zone] ? 'открыто' : 'закрыто'}`, states[zone] ? 'warn' : '');
+
+            // Power Latch: открытие водительской двери гасит ACC
+            if (zone === 'fl' && states[zone]) {
+                addLog('Открыта водительская дверь: Power Latch выключил магнитолу и ACC.');
+            }
+
+            if (states[zone] && isArmed && engineMode === 'REMOTE_START') {
+                addLog('ТРЕВОГА! Вскрытие кузова во время АЗ. ДВС экстренно заглушен!', 'alarm');
+                stopEngineInternal();
+            } else {
+                syncOrbitUI();
+            }
+        }
+
+        function toggleKeyIgnition() {
+            isKeyIgnOn = !isKeyIgnOn;
+            btnIgnEl.classList.toggle('active-mint', isKeyIgnOn);
+            addLog(isKeyIgnOn ? 'Ключ повернут в Зажигание (IGN II).' : 'Зажигание выключено ключом.');
+            syncOrbitUI();
+        }
+
+        async function pressBrake() {
+            btnBrakeEl.classList.add('active-red');
+            setTimeout(() => btnBrakeEl.classList.remove('active-red'), 350);
+
+            if (engineMode === 'REMOTE_START') {
+                if (isArmed || !isKeyIgnOn) {
+                    stopEngineInternal();
+                    addLog('Нажат тормоз без соблюдения условий мягкой посадки (нет ключа или в охране). АЗ прерван.', 'warn');
+                } else {
+                    // МЯГКАЯ ПОСАДКА УСПЕШНА
+                    stopAzCountdown();
+                    engineMode = 'DRIVE';
+                    document.getElementById('btnEngineSub').innerText = 'В поездке (от ключа)';
+                    addLog('Мягкая посадка выполнена: зажигание перехвачено на ключ, режим «В поездке».');
+                    syncOrbitUI();
+                    await flashHazards(1);
+                }
+            }
+        }
+
+        async function toggleSecurity() {
+            if (isSignalSequenceActive) return;
+            isSignalSequenceActive = true;
+            setControlsBusy(true);
+
+            const openCount = Object.keys(states).filter(k => states[k]).length;
+
+            if (isArmed) {
+                // ПЫТАЕМСЯ СНЯТЬ С ОХРАНЫ
+                isArmed = false;
+                car.classList.remove('armed');
+                car.classList.add('disarmed');
+
+                document.getElementById('btnSecurity').classList.add('danger-state');
+                document.getElementById('btnSecIcon').innerText = '🔓';
+                document.getElementById('btnSecTitle').innerText = 'В охрану';
+                document.getElementById('btnSecSub').innerText = 'Снято с охраны';
+
+                syncOrbitUI();
+                await pulseSirenAndHazards(2); // 2 бипа при снятии
+                addLog('Снято с охраны (2 сигнала сирены)');
+            } else {
+                // ПЫТАЕМСЯ ПОСТАВИТЬ В ОХРАНУ
+                if (openCount > 0) {
+                    // ЕСЛИ КОНЦЕВИК ЗАМКНУТ (ОТКРЫТО) — НЕ ВСТАЕТ, 3 СИГНАЛА
+                    addLog(`Ошибка постановки в охрану: открыто зон (${openCount}). Сирена 3 сигнала.`, 'alarm');
+                    await pulseSirenAndHazards(3);
+                } else {
+                    // ВСЁ ЗАКРЫТО — УСПЕШНАЯ ПОСТАНОВКА
+                    isArmed = true;
+                    car.classList.add('armed');
+                    car.classList.remove('disarmed');
+
+                    document.getElementById('btnSecurity').classList.remove('danger-state');
+                    document.getElementById('btnSecIcon').innerText = '🔒';
+                    document.getElementById('btnSecTitle').innerText = 'Снять с охраны';
+                    document.getElementById('btnSecSub').innerText = 'В охране';
+
+                    // Вежливый свет: при постановке в охрану плафон салона гаснет сразу
+                    if (document.getElementById('politeLightToggle')?.checked) {
+                        addLog('Вежливый свет: салонный плафон погашен при закрытии ЦЗ.');
+                    }
+
+                    syncOrbitUI();
+                    await pulseSirenAndHazards(1); // 1 бип при постановке
+                    addLog('Постановка в охрану (1 сигнал сирены)');
+                }
+            }
+
+            isSignalSequenceActive = false;
+            setControlsBusy(false);
+        }
+
+        async function toggleEngine() {
+            if (isSignalSequenceActive) return;
+            isSignalSequenceActive = true;
+            setControlsBusy(true);
+
+            const btnEngineTitle = document.getElementById('btnEngineTitle');
+            const btnEngineSub = document.getElementById('btnEngineSub');
+
+            if (!isEngineRunning) {
+                btnEngineSub.innerText = 'Запуск стартера...';
+                addLog('Автозапуск ДВС: 3 вспышки аварийки');
+                await flashHazards(3);
+
+                isEngineRunning = true;
+                engineMode = 'REMOTE_START';
+                car.classList.add('engine-running', 'lights-active');
+                btnEngineEl.classList.add('mint-active');
+                btnEngineTitle.innerText = 'Остановить ДВС';
+                btnEngineSub.innerText = 'Автозапуск активен';
+                rpmStatValue.innerText = '850 RPM';
+                rpmStatValue.style.color = 'var(--mint)';
+
+                startAzCountdown();
+                addLog('АЗ запущен (15 мин). Ожидание владельца.');
+            } else {
+                btnEngineSub.innerText = 'Остановка ДВС...';
+                stopAzCountdown();
+                car.classList.remove('engine-running');
+                rpmStatValue.innerText = '0 RPM';
+                rpmStatValue.style.color = 'var(--text-main)';
+                await flashHazards(3);
+
+                stopEngineInternal();
+                addLog('ДВС остановлен пользователем', 'warn');
+            }
+
+            isSignalSequenceActive = false;
+            setControlsBusy(false);
         }
 
         function toggleHazards() {
-            car.classList.toggle('hazards-active');
-            document.getElementById('btnHazards').classList.toggle('active-hazards');
+            isHazardsOn = !isHazardsOn;
+            car.classList.toggle('hazards-on', isHazardsOn);
+            document.getElementById('btn-haz').classList.toggle('active-amber', isHazardsOn);
         }
+
+        function setupHoldButton(btn, durationMs, onTrigger) {
+            let holdTimer = null;
+            let startTime = 0;
+            const fill = btn.querySelector('.hold-progress-fill');
+            const meter = btn.querySelector('.hold-ring-meter');
+            const sub = btn.querySelector('.orbit-btn-sub');
+            const circumference = 113.1;
+            let savedSubText = '';
+
+            function setProgress(p) {
+                if (fill) fill.style.transform = `scaleX(${p})`;
+                if (meter) meter.style.strokeDashoffset = String(circumference * (1 - p));
+            }
+
+            function startHold() {
+                if (btn.classList.contains('busy') || isSignalSequenceActive) return;
+                savedSubText = sub.innerText;
+                sub.innerText = 'Удерживайте...';
+                btn.classList.add('holding');
+                startTime = performance.now();
+
+                function frame(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / durationMs, 1);
+                    setProgress(progress);
+
+                    if (progress < 1) {
+                        holdTimer = requestAnimationFrame(frame);
+                    } else {
+                        cancelHold(true);
+                        if (navigator.vibrate) navigator.vibrate(40);
+                        onTrigger();
+                    }
+                }
+                holdTimer = requestAnimationFrame(frame);
+            }
+
+            function cancelHold(triggered = false) {
+                if (holdTimer) { cancelAnimationFrame(holdTimer); holdTimer = null; }
+                if (btn.classList.contains('holding') && !triggered && savedSubText) { sub.innerText = savedSubText; }
+                btn.classList.remove('holding');
+                setProgress(0);
+            }
+
+            btn.addEventListener('mousedown', startHold);
+            btn.addEventListener('mouseup', () => cancelHold(false));
+            btn.addEventListener('mouseleave', () => cancelHold(false));
+            btn.addEventListener('touchstart', startHold, { passive: true });
+            btn.addEventListener('touchend', () => cancelHold(false));
+            btn.addEventListener('touchcancel', () => cancelHold(false));
+            btn.addEventListener('contextmenu', e => e.preventDefault());
+        }
+
+        setupHoldButton(btnEngineEl, 1100, toggleEngine);
+        setupHoldButton(btnSecurityEl, 1100, toggleSecurity);
     </script>
 </body>
 </html>
